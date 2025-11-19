@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/db/mongoose'
 import { User } from '@/lib/db/models'
 import { hashPassword } from '@/lib/auth/password'
-import { createSession } from '@/lib/auth/session'
+import { createSession, deleteSession } from '@/lib/auth/session'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 
@@ -60,22 +60,45 @@ export async function POST(request: NextRequest) {
     })
 
     // Create session
-    const sessionToken = await createSession(user._id.toString(), {
-      userId: user._id.toString(),
-      email: user.email,
-      username: user.username,
-      role: user.role,
-    })
+    let sessionToken: string
+    try {
+      sessionToken = await createSession(user._id.toString(), {
+        userId: user._id.toString(),
+        email: user.email,
+        username: user.username,
+        role: user.role,
+      })
+    } catch (sessionError) {
+      // If session creation fails, delete the user to maintain data consistency
+      await User.findByIdAndDelete(user._id)
+      console.error('Session creation error:', sessionError)
+      const errorMessage = sessionError instanceof Error ? sessionError.message : 'Failed to create session'
+      return NextResponse.json(
+        { error: 'Failed to create session. Please try again.', details: errorMessage },
+        { status: 500 }
+      )
+    }
 
     // Set cookie
-    const cookieStore = await cookies()
-    cookieStore.set('claimstack_session', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/',
-    })
+    try {
+      const cookieStore = await cookies()
+      cookieStore.set('claimstack_session', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/',
+      })
+    } catch (cookieError) {
+      // If cookie setting fails, delete the session and user
+      await deleteSession(sessionToken)
+      await User.findByIdAndDelete(user._id)
+      console.error('Cookie setting error:', cookieError)
+      return NextResponse.json(
+        { error: 'Failed to set session cookie. Please try again.' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json(
       {
@@ -96,8 +119,9 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error('Signup error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: errorMessage },
       { status: 500 }
     )
   }

@@ -18,6 +18,13 @@ function getSupabaseClient() {
     throw new Error('Supabase credentials are not configured. Please set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.')
   }
 
+  // Validate URL format
+  try {
+    new URL(supabaseUrl)
+  } catch {
+    throw new Error(`Invalid Supabase URL format: ${supabaseUrl}`)
+  }
+
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
@@ -46,45 +53,84 @@ async function uploadToS3(file: File, folder: string): Promise<UploadResult> {
 }
 
 async function uploadToSupabase(file: File, folder: string): Promise<UploadResult> {
-  const supabase = getSupabaseClient()
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'claimstack-files'
+  try {
+    const supabase = getSupabaseClient()
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'claimstack-files'
 
-  // Generate unique filename
-  const timestamp = Date.now()
-  const randomString = Math.random().toString(36).substring(2, 15)
-  const fileExtension = file.name.split('.').pop()
-  const fileName = `${folder}/${timestamp}-${randomString}.${fileExtension}`
+    // Validate bucket name
+    if (!bucket) {
+      throw new Error('Supabase storage bucket is not configured. Please set SUPABASE_STORAGE_BUCKET environment variable.')
+    }
 
-  // Convert File to ArrayBuffer for Supabase
-  const arrayBuffer = await file.arrayBuffer()
-  const fileBuffer = Buffer.from(arrayBuffer)
+    // Generate unique filename
+    const timestamp = Date.now()
+    const randomString = Math.random().toString(36).substring(2, 15)
+    const fileExtension = file.name.split('.').pop()
+    const fileName = `${folder}/${timestamp}-${randomString}.${fileExtension}`
 
-  // Upload file
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .upload(fileName, fileBuffer, {
-      contentType: file.type,
-      upsert: false,
-    })
+    // Convert File to ArrayBuffer for Supabase
+    const arrayBuffer = await file.arrayBuffer()
+    const fileBuffer = Buffer.from(arrayBuffer)
 
-  if (error) {
-    throw new Error(`Failed to upload file: ${error.message}`)
-  }
+    // Upload file
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, fileBuffer, {
+        contentType: file.type,
+        upsert: false,
+      })
 
-  // Get public URL
-  const { data: urlData } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(fileName)
+    if (error) {
+      // Log full error details for debugging
+      console.error('Supabase upload error:', {
+        message: error.message,
+        name: error.name,
+      })
+      
+      // Provide more helpful error messages based on error message content
+      const errorMessage = error.message || 'Unknown error'
+      
+      if (errorMessage.includes('Bucket not found') || errorMessage.includes('404') || errorMessage.includes('not found')) {
+        throw new Error(`Storage bucket "${bucket}" not found. Please create the bucket in your Supabase dashboard.`)
+      }
+      if (errorMessage.includes('new row violates row-level security') || errorMessage.includes('RLS') || errorMessage.includes('permission denied')) {
+        throw new Error('Storage bucket access denied. Please check your Supabase RLS policies.')
+      }
+      if (errorMessage.includes('JWT') || errorMessage.includes('unauthorized') || errorMessage.includes('invalid')) {
+        throw new Error('Invalid Supabase credentials. Please check your SUPABASE_SERVICE_ROLE_KEY.')
+      }
+      
+      throw new Error(`Failed to upload file: ${errorMessage}`)
+    }
 
-  if (!urlData?.publicUrl) {
-    throw new Error('Failed to get public URL for uploaded file')
-  }
+    if (!data) {
+      throw new Error('Upload succeeded but no data returned from Supabase')
+    }
 
-  return {
-    fileUrl: urlData.publicUrl,
-    fileName: file.name,
-    fileSize: file.size,
-    fileType: file.type,
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fileName)
+
+    if (!urlData?.publicUrl) {
+      throw new Error('Failed to get public URL for uploaded file')
+    }
+
+    return {
+      fileUrl: urlData.publicUrl,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+    }
+  } catch (error) {
+    // Re-throw if it's already a properly formatted error
+    if (error instanceof Error) {
+      throw error
+    }
+    
+    // Handle unexpected error types
+    console.error('Unexpected upload error:', error)
+    throw new Error(`Failed to upload file: ${String(error)}`)
   }
 }
 

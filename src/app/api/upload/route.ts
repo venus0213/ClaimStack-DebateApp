@@ -50,7 +50,26 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Upload error:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Failed to upload file'
+    
+    // Extract error message with more details
+    let errorMessage = 'Failed to upload file'
+    if (error instanceof Error) {
+      errorMessage = error.message
+      
+      // Check for common error patterns
+      if (error.message.includes('Unexpected token')) {
+        errorMessage = 'Invalid response from storage service. Please check your Supabase configuration and ensure the storage bucket exists.'
+      } else if (error.message.includes('credentials')) {
+        errorMessage = 'Storage service credentials are invalid or missing. Please check your environment variables.'
+      } else if (error.message.includes('bucket')) {
+        errorMessage = error.message // Already a helpful message
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error
+    } else {
+      console.error('Unexpected error type:', typeof error, error)
+    }
+    
     return NextResponse.json(
       { error: errorMessage },
       { status: 500 }

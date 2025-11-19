@@ -18,7 +18,7 @@ const SessionSchema = new Schema<ISession>(
       type: String,
       required: true,
       unique: true,
-      maxlength: 255,
+      // No maxlength constraint - JWT tokens can vary in length
     },
     expires: {
       type: Date,
@@ -43,7 +43,12 @@ SessionSchema.index({ sessionToken: 1 })
 SessionSchema.index({ userId: 1 })
 SessionSchema.index({ expires: 1 })
 
-const Session: Model<ISession> = mongoose.models.Session || mongoose.model<ISession>('Session', SessionSchema)
+// Delete cached model if it exists to ensure schema changes take effect
+if (mongoose.models.Session) {
+  delete mongoose.models.Session
+}
+
+const Session: Model<ISession> = mongoose.model<ISession>('Session', SessionSchema)
 
 export default Session
 
