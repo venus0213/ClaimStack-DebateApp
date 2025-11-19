@@ -33,7 +33,11 @@ interface ModerationItem {
   votesFor?: number
   votesAgainst?: number
   flagTimestamps?: Array<{ date: string; user: string }>
-  imageUrl?: string
+  // File information
+  fileUrl?: string
+  fileName?: string
+  fileSize?: number
+  fileType?: string
 }
 
 export default function ModerationPage() {
@@ -129,7 +133,10 @@ export default function ModerationPage() {
         votesFor: 0, // TODO: Fetch votes if available
         votesAgainst: 0, // TODO: Fetch votes if available
         flagTimestamps: [], // TODO: Fetch flag timestamps
-        imageUrl: claim.fileUrl || undefined,
+        fileUrl: claim.fileUrl || undefined,
+        fileName: claim.fileName || undefined,
+        fileSize: claim.fileSize || undefined,
+        fileType: claim.fileType || undefined,
       }
     })
 
