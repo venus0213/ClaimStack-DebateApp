@@ -74,7 +74,7 @@ CREATE TABLE claims (
     against_summary TEXT, -- AI-generated "steel man" summary for "Against" side
     summary_updated_at TIMESTAMP WITH TIME ZONE,
     view_count INTEGER DEFAULT 0,
-    url TEXT, -- For external links
+    url TEXT, -- Forexternal links might include TikTok and Instagram video URL or article URL or and so on.
     file_url TEXT, -- For uploaded files (S3/Supabase URL)
     file_name VARCHAR(255),
     file_size BIGINT,

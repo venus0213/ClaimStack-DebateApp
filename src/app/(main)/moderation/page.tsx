@@ -38,6 +38,8 @@ interface ModerationItem {
   fileName?: string
   fileSize?: number
   fileType?: string
+  // External link information
+  url?: string
 }
 
 export default function ModerationPage() {
@@ -137,6 +139,7 @@ export default function ModerationPage() {
         fileName: claim.fileName || undefined,
         fileSize: claim.fileSize || undefined,
         fileType: claim.fileType || undefined,
+        url: claim.url || undefined,
       }
     })
 
