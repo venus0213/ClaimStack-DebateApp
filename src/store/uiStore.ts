@@ -64,11 +64,11 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   closeAllModals: () =>
     set((state) => {
-      const closedModals: UIState['modals'] = {}
+      const closedModals: Partial<UIState['modals']> = {}
       Object.keys(state.modals).forEach((key) => {
         closedModals[key] = false
       })
-      return { modals: closedModals }
+      return { modals: closedModals as UIState['modals'] }
     }),
 
   addToast: (message, type = 'info', duration = 5000) => {

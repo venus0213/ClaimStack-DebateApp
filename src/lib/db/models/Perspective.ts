@@ -9,7 +9,6 @@ export enum PerspectiveStatus {
 }
 
 export interface IPerspective extends Document {
-  _id: string
   claimId: mongoose.Types.ObjectId
   userId: mongoose.Types.ObjectId
   title?: string
@@ -102,8 +101,8 @@ const PerspectiveSchema = new Schema<IPerspective>(
     toJSON: {
       transform: (doc, ret) => {
         ret.id = ret._id.toString()
-        delete ret._id
-        delete ret.__v
+        delete (ret as any)._id
+        delete (ret as any).__v
         return ret
       },
     },

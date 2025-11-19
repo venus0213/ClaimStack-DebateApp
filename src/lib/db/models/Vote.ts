@@ -6,7 +6,6 @@ export enum VoteType {
 }
 
 export interface IVote extends Document {
-  _id: string
   evidenceId: mongoose.Types.ObjectId
   userId: mongoose.Types.ObjectId
   voteType: VoteType
@@ -36,8 +35,8 @@ const VoteSchema = new Schema<IVote>(
     toJSON: {
       transform: (doc, ret) => {
         ret.id = ret._id.toString()
-        delete ret._id
-        delete ret.__v
+        delete (ret as any)._id
+        delete (ret as any).__v
         return ret
       },
     },

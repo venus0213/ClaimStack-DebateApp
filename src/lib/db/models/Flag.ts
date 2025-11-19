@@ -17,7 +17,6 @@ export enum FlagStatus {
 }
 
 export interface IFlag extends Document {
-  _id: string
   claimId?: mongoose.Types.ObjectId
   evidenceId?: mongoose.Types.ObjectId
   perspectiveId?: mongoose.Types.ObjectId
@@ -75,8 +74,8 @@ const FlagSchema = new Schema<IFlag>(
     toJSON: {
       transform: (doc, ret) => {
         ret.id = ret._id.toString()
-        delete ret._id
-        delete ret.__v
+        delete (ret as any)._id
+        delete (ret as any).__v
         return ret
       },
     },

@@ -1,7 +1,6 @@
 import mongoose, { Schema, Document, Model } from 'mongoose'
 
 export interface IUserFollow extends Document {
-  _id: string
   followerId: mongoose.Types.ObjectId
   followingId: mongoose.Types.ObjectId
   createdAt: Date
@@ -25,8 +24,8 @@ const UserFollowSchema = new Schema<IUserFollow>(
     toJSON: {
       transform: (doc, ret) => {
         ret.id = ret._id.toString()
-        delete ret._id
-        delete ret.__v
+        delete (ret as any)._id
+        delete (ret as any).__v
         return ret
       },
     },
