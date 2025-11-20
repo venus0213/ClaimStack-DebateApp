@@ -9,9 +9,11 @@ import { ForAgainstToggle } from '@/components/claims/ForAgainstToggle'
 import { Button } from '@/components/ui/Button'
 import { ArrowUpIcon, CheckIcon } from '@/components/ui/Icons'
 import { SuccessModal } from '@/components/ui/SuccessModal'
+import { useEvidenceStore } from '@/store/evidenceStore'
 
 export interface PerspectiveUploadProps {
-  onUpload: (data: PerspectiveUploadData) => void
+  claimId: string
+  onUpload?: (data: PerspectiveUploadData) => void
   onClose: () => void
   isLoading?: boolean
 }
@@ -20,6 +22,7 @@ export interface PerspectiveUploadData {
   type?: 'url' | 'file'
   url?: string
   file?: File
+  title?: string
   description: string
   position: 'for' | 'against'
 }
@@ -33,20 +36,24 @@ const acceptedFormats = ['pdf', 'docx', 'jpg', 'png', 'mp4']
 const maxSize = 25 * 1024 * 1024 // 25MB
 
 export const PerspectiveUpload: React.FC<PerspectiveUploadProps> = ({
+  claimId,
   onUpload,
   onClose,
-  isLoading,
+  isLoading: externalLoading,
 }) => {
+  const { createPerspective, isLoading: storeLoading } = useEvidenceStore()
   const [perspectiveType, setPerspectiveType] = useState<'url' | 'file'>('url')
   const [url, setUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [position, setPosition] = useState<'for' | 'against'>('for')
-  const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [descriptionError, setDescriptionError] = useState<string | null>(null)
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  const isLoading = externalLoading || storeLoading
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -69,22 +76,10 @@ export const PerspectiveUpload: React.FC<PerspectiveUploadProps> = ({
 
     setFile(selectedFile)
     setError(null)
-    setUploadProgress(0)
-
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          return 100
-        }
-        return prev + 10
-      })
-    }, 200)
   }
 
-  const handleSubmit = () => {
-    // Validate required field: description
+  const handleSubmit = async () => {
+    // Validate required field: description (body)
     if (!description.trim()) {
       setDescriptionError('Perspectives is required')
       return
@@ -99,34 +94,81 @@ export const PerspectiveUpload: React.FC<PerspectiveUploadProps> = ({
 
     // Perspective Type (URL/File) is optional, but if selected, validate it
     if (perspectiveType === 'url' && url.trim()) {
-      // URL is provided, validate it's a valid URL (optional validation)
+      // URL is provided, validate it's a valid URL
+      try {
+        new URL(url.trim())
+      } catch {
+        setError('Please enter a valid URL')
+        return
+      }
       setError(null)
-    } else if (perspectiveType === 'file' && file) {
-      // File is provided, already validated in handleFileSelect
-      setError(null)
+    } else if (perspectiveType === 'file' && !file) {
+      setError('Please select a file')
+      return
     } else {
       // No URL/File provided, that's okay since it's optional
       setError(null)
     }
     
-    // Call onUpload callback
-    onUpload({
-      type: (perspectiveType === 'url' && url.trim()) || (perspectiveType === 'file' && file) ? perspectiveType : undefined,
-      url: perspectiveType === 'url' && url.trim() ? url : undefined,
-      file: perspectiveType === 'file' && file ? file : undefined,
-      description: description.trim(),
-      position,
-    })
+    setError(null)
     
-    // Show success modal after a brief delay to simulate upload
-    setTimeout(() => {
+    // Prepare perspective data
+    const perspectiveData: any = {
+      body: description.trim(),
+      title: title.trim() || undefined,
+      position,
+    }
+    
+    if (perspectiveType === 'url' && url.trim()) {
+      perspectiveData.type = 'url'
+      perspectiveData.url = url.trim()
+    } else if (perspectiveType === 'file' && file) {
+      perspectiveData.type = 'file'
+      perspectiveData.file = file
+    }
+    
+    // Create perspective using store
+    const result = await createPerspective(claimId, perspectiveData)
+
+    if (result.success && result.perspective) {
+      // Call onUpload callback if provided
+      if (onUpload) {
+        onUpload({
+          type: perspectiveType === 'url' && url.trim() ? 'url' : perspectiveType === 'file' && file ? 'file' : undefined,
+          url: perspectiveType === 'url' && url.trim() ? url : undefined,
+          file: perspectiveType === 'file' && file ? file : undefined,
+          title: title.trim() || undefined,
+          description: description.trim(),
+          position,
+        })
+      }
+      
+      // Show success modal
       setIsSuccessModalOpen(true)
-    }, 500)
+      
+      // Reset form
+      setUrl('')
+      setFile(null)
+      setTitle('')
+      setDescription('')
+      setPosition('for')
+      setPerspectiveType('url')
+    } else {
+      setError(result.error || 'Failed to submit perspective')
+    }
   }
 
   return (
     <div className="space-y-4">
       <div>
+        <Input
+          label="Title"
+          placeholder="Enter a title for your perspective"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={500}
+          className="w-full rounded-full mb-4"
+        />
 
       <Textarea
         label="Perspectives"

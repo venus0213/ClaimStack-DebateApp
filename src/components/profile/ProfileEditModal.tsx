@@ -156,7 +156,6 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
         setAvatarPreview(user.avatarUrl || null)
       }, 1500)
     } catch (err) {
-      console.error('Update profile error:', err)
       setError(err instanceof Error ? err.message : 'Failed to update profile')
     } finally {
       setLoading(false)
@@ -215,7 +214,6 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
         setSuccess(null)
       }, 1500)
     } catch (err) {
-      console.error('Change password error:', err)
       setPasswordError(err instanceof Error ? err.message : 'Failed to change password')
     } finally {
       setLoading(false)

@@ -71,7 +71,6 @@ export async function POST(request: NextRequest) {
     } catch (sessionError) {
       // If session creation fails, delete the user to maintain data consistency
       await User.findByIdAndDelete(user._id)
-      console.error('Session creation error:', sessionError)
       const errorMessage = sessionError instanceof Error ? sessionError.message : 'Failed to create session'
       return NextResponse.json(
         { error: 'Failed to create session. Please try again.', details: errorMessage },
@@ -93,7 +92,6 @@ export async function POST(request: NextRequest) {
       // If cookie setting fails, delete the session and user
       await deleteSession(sessionToken)
       await User.findByIdAndDelete(user._id)
-      console.error('Cookie setting error:', cookieError)
       return NextResponse.json(
         { error: 'Failed to set session cookie. Please try again.' },
         { status: 500 }

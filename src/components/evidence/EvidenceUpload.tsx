@@ -22,6 +22,7 @@ export interface EvidenceUploadData {
   type: 'url' | 'file'
   url?: string
   file?: File
+  title?: string
   description?: string
   position: 'for' | 'against'
 }
@@ -44,6 +45,7 @@ export const EvidenceUpload: React.FC<EvidenceUploadProps> = ({
   const [evidenceType, setEvidenceType] = useState<'url' | 'file'>('url')
   const [url, setUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [position, setPosition] = useState<'for' | 'against'>('for')
   const [error, setError] = useState<string | null>(null)
@@ -91,6 +93,7 @@ export const EvidenceUpload: React.FC<EvidenceUploadProps> = ({
     // Prepare evidence data
     const evidenceData: any = {
       type: evidenceType,
+      title: title.trim() || undefined,
       description: description.trim() || undefined,
       position,
     }
@@ -111,6 +114,7 @@ export const EvidenceUpload: React.FC<EvidenceUploadProps> = ({
           type: evidenceType,
           url: evidenceType === 'url' ? url : undefined,
           file: evidenceType === 'file' ? file! : undefined,
+          title,
           description,
           position,
         })
@@ -122,6 +126,7 @@ export const EvidenceUpload: React.FC<EvidenceUploadProps> = ({
       // Reset form
       setUrl('')
       setFile(null)
+      setTitle('')
       setDescription('')
       setPosition('for')
       setEvidenceType('url')
@@ -133,6 +138,24 @@ export const EvidenceUpload: React.FC<EvidenceUploadProps> = ({
   return (
     <div className="space-y-4">
       <div>
+        <Input
+          label="Title"
+          placeholder="Enter a title for your evidence"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={500}
+          className="w-full rounded-full mb-4"
+        />
+
+        <Textarea
+        label="Brief description (optional)"
+        placeholder="You can add context or reasoning"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        maxLength={500}
+        showCharCount
+        />
+
         <label className="block text-sm font-medium text-[#666666] mb-2">
           Evidence Type
         </label>
@@ -214,15 +237,6 @@ export const EvidenceUpload: React.FC<EvidenceUploadProps> = ({
           </div>
         </div>
       )}
-
-      <Textarea
-        label="Brief description (optional)"
-        placeholder="You can add context or reasoning"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        maxLength={500}
-        showCharCount
-      />
 
       <div>
         <ForAgainstToggle

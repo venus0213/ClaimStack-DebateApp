@@ -1,31 +1,99 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils/cn'
-import { ArrowUpIcon, ArrowDownIcon } from '@/components/ui/Icons'
+import { ThumbUpIcon, ThumbDownIcon } from '@/components/ui/Icons'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 
 export interface VoteButtonsProps {
   upvotes: number
   downvotes: number
   userVote?: 'upvote' | 'downvote' | null
-  onVote?: (voteType: 'upvote' | 'downvote') => void
+  onVote?: (voteType: 'upvote' | 'downvote') => Promise<void>
   disabled?: boolean
 }
 
 export const VoteButtons: React.FC<VoteButtonsProps> = ({
-  upvotes,
-  downvotes,
-  userVote,
+  upvotes: initialUpvotes,
+  downvotes: initialDownvotes,
+  userVote: initialUserVote,
   onVote,
   disabled,
 }) => {
   const { requireAuth } = useRequireAuth()
+  const [upvotes, setUpvotes] = useState(initialUpvotes)
+  const [downvotes, setDownvotes] = useState(initialDownvotes)
+  const [userVote, setUserVote] = useState<'upvote' | 'downvote' | null>(initialUserVote || null)
+  const [isVoting, setIsVoting] = useState(false)
 
-  const handleVote = (voteType: 'upvote' | 'downvote') => {
-    if (disabled) return
-    requireAuth(() => {
-      onVote?.(voteType)
+  // Update state when props change
+  useEffect(() => {
+    setUpvotes(initialUpvotes)
+    setDownvotes(initialDownvotes)
+    setUserVote(initialUserVote || null)
+  }, [initialUpvotes, initialDownvotes, initialUserVote])
+
+  const handleVote = async (voteType: 'upvote' | 'downvote') => {
+    if (disabled || isVoting) return
+    
+    requireAuth(async () => {
+      // Optimistic update - update UI first
+      setIsVoting(true)
+      const previousVote = userVote
+      const previousUpvotes = upvotes
+      const previousDownvotes = downvotes
+
+      // Calculate new vote state optimistically
+      let newUserVote: 'upvote' | 'downvote' | null = voteType
+      let newUpvotes = upvotes
+      let newDownvotes = downvotes
+
+      if (previousVote === voteType) {
+        // Toggle off - remove vote
+        newUserVote = null
+        if (voteType === 'upvote') {
+          newUpvotes = Math.max(0, upvotes - 1)
+        } else {
+          newDownvotes = Math.max(0, downvotes - 1)
+        }
+      } else if (previousVote) {
+        // Switch vote type
+        if (previousVote === 'upvote') {
+          newUpvotes = Math.max(0, upvotes - 1)
+        } else {
+          newDownvotes = Math.max(0, downvotes - 1)
+        }
+        if (voteType === 'upvote') {
+          newUpvotes += 1
+        } else {
+          newDownvotes += 1
+        }
+      } else {
+        // New vote
+        if (voteType === 'upvote') {
+          newUpvotes += 1
+        } else {
+          newDownvotes += 1
+        }
+      }
+
+      // Update UI immediately
+      setUpvotes(newUpvotes)
+      setDownvotes(newDownvotes)
+      setUserVote(newUserVote)
+
+      try {
+        // Then update backend
+        await onVote?.(voteType)
+      } catch (error) {
+        // Revert on error
+        setUpvotes(previousUpvotes)
+        setDownvotes(previousDownvotes)
+        setUserVote(previousVote)
+        console.error('Error voting:', error)
+      } finally {
+        setIsVoting(false)
+      }
     })
   }
 
@@ -43,7 +111,7 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
         )}
       >
         <span className="text-xs sm:text-sm font-medium">+{upvotes}</span>
-        <ArrowUpIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+        <ThumbUpIcon className="w-3 h-3 sm:w-4 sm:h-4" />
       </button>
       <button
         onClick={() => handleVote('downvote')}
@@ -57,7 +125,7 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
         )}
       >
         <span className="text-xs sm:text-sm font-medium">+{downvotes}</span>
-        <ArrowDownIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+        <ThumbDownIcon className="w-3 h-3 sm:w-4 sm:h-4" />
       </button>
     </div>
   )

@@ -23,7 +23,12 @@ export interface Claim {
   againstSummary?: string
   summaryUpdatedAt?: Date
   viewCount: number
+  followCount?: number
+  totalScore?: number
+  upvotes?: number
+  downvotes?: number
   url?: string
+  userVote?: 'upvote' | 'downvote' | null
   fileUrl?: string
   fileName?: string
   fileSize?: number
@@ -57,10 +62,13 @@ export interface Evidence {
   upvotes: number
   downvotes: number
   score: number
+  followCount?: number
   createdAt: Date
   updatedAt: Date
   user?: User
   claim?: Claim
+  userVote?: 'upvote' | 'downvote' | null
+  isFollowing?: boolean
 }
 
 // Vote Types
@@ -111,10 +119,13 @@ export interface Perspective {
   upvotes: number
   downvotes: number
   score: number
+  followCount?: number
   createdAt: Date
   updatedAt: Date
   user?: User
   claim?: Claim
+  userVote?: 'upvote' | 'downvote' | null
+  isFollowing?: boolean
 }
 
 // Flag Types

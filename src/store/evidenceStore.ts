@@ -37,9 +37,22 @@ interface EvidenceState {
     fileName?: string
     fileSize?: number
     fileType?: string
+    title?: string
     description?: string
     position: 'for' | 'against'
   }) => Promise<{ success: boolean; evidence?: Evidence; error?: string }>
+  createPerspective: (claimId: string, data: {
+    type?: 'url' | 'file'
+    url?: string
+    file?: File
+    fileUrl?: string
+    fileName?: string
+    fileSize?: number
+    fileType?: string
+    title?: string
+    body: string
+    position: 'for' | 'against'
+  }) => Promise<{ success: boolean; perspective?: Perspective; error?: string }>
 }
 
 export const useEvidenceStore = create<EvidenceState>((set, get) => ({
@@ -226,6 +239,7 @@ export const useEvidenceStore = create<EvidenceState>((set, get) => ({
       // Prepare request body based on type
       const requestBody: any = {
         type: data.type,
+        title: data.title,
         description: data.description,
         position: data.position,
       }
@@ -267,10 +281,127 @@ export const useEvidenceStore = create<EvidenceState>((set, get) => ({
         get().addEvidence(result.evidence)
       }
 
+      // Update claim score if provided in response
+      // Note: We'll update this in the component to avoid circular dependency
+      // The API response includes the updated claim score
+
       set({ isLoading: false, error: null })
-      return { success: true, evidence: result.evidence }
+      return { 
+        success: true, 
+        evidence: result.evidence,
+        claim: result.claim, // Include claim with updated score
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create evidence'
+      set({ error: errorMessage, isLoading: false })
+      return { success: false, error: errorMessage }
+    }
+  },
+
+  createPerspective: async (claimId, data) => {
+    try {
+      set({ isLoading: true, error: null })
+
+      // If file is provided, upload it first
+      let fileUrl: string | undefined
+      let fileName: string | undefined
+      let fileSize: number | undefined
+      let fileType: string | undefined
+
+      if (data.type === 'file' && data.file) {
+        // Upload file
+        const formData = new FormData()
+        formData.append('file', data.file)
+        formData.append('folder', 'perspectives')
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        // Check if response is JSON
+        const uploadContentType = uploadResponse.headers.get('content-type')
+        if (!uploadContentType || !uploadContentType.includes('application/json')) {
+          const text = await uploadResponse.text()
+          throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`)
+        }
+
+        const uploadData = await uploadResponse.json()
+
+        if (!uploadResponse.ok) {
+          throw new Error(uploadData.error || 'Failed to upload file')
+        }
+
+        fileUrl = uploadData.data.fileUrl
+        fileName = uploadData.data.fileName
+        fileSize = uploadData.data.fileSize
+        fileType = uploadData.data.fileType
+      } else if (data.fileUrl) {
+        // File URL already provided (uploaded separately)
+        fileUrl = data.fileUrl
+        fileName = data.fileName
+        fileSize = data.fileSize
+        fileType = data.fileType
+      }
+
+      // Prepare request body
+      const requestBody: any = {
+        body: data.body,
+        title: data.title?.trim() || undefined,
+        position: data.position,
+      }
+
+      // Add type-specific fields
+      if (data.type === 'url' && data.url) {
+        requestBody.type = 'url'
+        requestBody.url = data.url
+      } else if (data.type === 'file' && (fileUrl || data.fileUrl)) {
+        requestBody.type = 'file'
+        requestBody.fileUrl = fileUrl || data.fileUrl
+        requestBody.fileName = fileName || data.fileName
+        requestBody.fileSize = fileSize || data.fileSize
+        requestBody.fileType = fileType || data.fileType
+      }
+
+      // Create perspective
+      const response = await fetch(`/api/claims/perspectives?id=${claimId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`)
+      }
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create perspective')
+      }
+
+      // Add perspective to store
+      if (result.perspective) {
+        get().addPerspective(result.perspective)
+      }
+
+      // Update claim score if provided in response
+      // Note: We'll update this in the component to avoid circular dependency
+      // The API response includes the updated claim score
+
+      set({ isLoading: false, error: null })
+      return { 
+        success: true, 
+        perspective: result.perspective,
+        claim: result.claim, // Include claim with updated score
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create perspective'
       set({ error: errorMessage, isLoading: false })
       return { success: false, error: errorMessage }
     }

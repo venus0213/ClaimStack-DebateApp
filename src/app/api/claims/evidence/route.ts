@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/middleware'
 import { Claim } from '@/lib/db/models'
 import { Evidence, EvidenceType, Position, EvidenceStatus } from '@/lib/db/models'
 import { fetchOEmbed } from '@/lib/oembed/client'
+import { updateClaimScore } from '@/lib/utils/claimScore'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -14,17 +15,16 @@ const createEvidenceSchema = z.object({
   fileName: z.string().optional(),
   fileSize: z.number().optional(),
   fileType: z.string().optional(),
+  title: z.string().max(500).optional(),
   description: z.string().max(500).optional(),
   position: z.enum(['for', 'against']),
 })
 
 export async function POST(request: NextRequest) {
-  console.log('request: >>--->',request)
   try {
     // Get claimId from query parameters
     const { searchParams } = new URL(request.url)
     const claimId = searchParams.get('id')
-    console.log('claimId: >>--->',claimId)
     // Check authentication
     const authResult = await requireAuth(request)
     if (authResult.error) {
@@ -49,7 +49,6 @@ export async function POST(request: NextRequest) {
 
     // Validate claim ID format
     if (!mongoose.Types.ObjectId.isValid(claimId)) {
-      console.error('Invalid claim ID format:', claimId)
       return NextResponse.json(
         { success: false, error: 'Invalid claim ID format', receivedId: claimId },
         { 
@@ -104,7 +103,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { type, url, fileUrl, fileName, fileSize, fileType, description, position } = validationResult.data
+    const { type, url, fileUrl, fileName, fileSize, fileType, title, description, position } = validationResult.data
 
     // Validate that required fields are provided based on type
     if (type === 'url') {
@@ -146,8 +145,9 @@ export async function POST(request: NextRequest) {
       claimId: new mongoose.Types.ObjectId(claimId),
       userId: new mongoose.Types.ObjectId(user.userId),
       position: position.toUpperCase() as Position,
+      title: title?.trim() || undefined,
       description,
-      status: EvidenceStatus.PENDING,
+      status: EvidenceStatus.APPROVED, // Auto-approve evidence
       upvotes: 0,
       downvotes: 0,
       score: 0,
@@ -168,7 +168,10 @@ export async function POST(request: NextRequest) {
             thumbnail: oembedData.thumbnail,
             provider: oembedData.provider,
           }
-          evidenceData.title = oembedData.title || undefined
+          // Only set title from oEmbed if user didn't provide one
+          if (!title?.trim()) {
+            evidenceData.title = oembedData.title || undefined
+          }
         } catch (error) {
           console.error('Failed to fetch oEmbed data:', error)
         }
@@ -180,7 +183,10 @@ export async function POST(request: NextRequest) {
             title: oembedData.title,
             provider: oembedData.provider,
           }
-          evidenceData.title = oembedData.title || undefined
+          // Only set title from oEmbed if user didn't provide one
+          if (!title?.trim()) {
+            evidenceData.title = oembedData.title || undefined
+          }
         } catch (error) {
           console.error('Failed to fetch oEmbed data:', error)
         }
@@ -192,7 +198,10 @@ export async function POST(request: NextRequest) {
             title: oembedData.title,
             provider: oembedData.provider,
           }
-          evidenceData.title = oembedData.title || undefined
+          // Only set title from oEmbed if user didn't provide one
+          if (!title?.trim()) {
+            evidenceData.title = oembedData.title || undefined
+          }
         } catch (error) {
           console.error('Failed to fetch oEmbed data:', error)
         }
@@ -204,7 +213,10 @@ export async function POST(request: NextRequest) {
             title: oembedData.title,
             provider: oembedData.provider,
           }
-          evidenceData.title = oembedData.title || undefined
+          // Only set title from oEmbed if user didn't provide one
+          if (!title?.trim()) {
+            evidenceData.title = oembedData.title || undefined
+          }
         } catch (error) {
           console.error('Failed to fetch oEmbed data:', error)
         }
@@ -218,7 +230,10 @@ export async function POST(request: NextRequest) {
             thumbnail: oembedData.thumbnail,
             provider: oembedData.provider,
           }
-          evidenceData.title = oembedData.title || undefined
+          // Only set title from oEmbed if user didn't provide one
+          if (!title?.trim()) {
+            evidenceData.title = oembedData.title || undefined
+          }
         } catch (error) {
           console.error('Failed to fetch oEmbed data:', error)
         }
@@ -250,6 +265,15 @@ export async function POST(request: NextRequest) {
     // Create evidence
     const evidence = await Evidence.create(evidenceData)
 
+    // Update claim score since evidence is auto-approved
+    // The score will include this new evidence immediately
+    try {
+      await updateClaimScore(new mongoose.Types.ObjectId(claimId))
+    } catch (error) {
+      console.error('Error updating claim score after evidence creation:', error)
+      // Don't fail the request if score update fails
+    }
+
     // Populate evidence with user and claim
     const populatedEvidence = await Evidence.findById(evidence._id)
       .populate('userId', 'username email firstName lastName avatarUrl')
@@ -258,6 +282,9 @@ export async function POST(request: NextRequest) {
     if (!populatedEvidence) {
       throw new Error('Failed to retrieve created evidence')
     }
+
+    // Get updated claim with recalculated score
+    const updatedClaim = await Claim.findById(claimId)
 
     const evidenceClaimId = populatedEvidence.claimId instanceof mongoose.Types.ObjectId 
       ? populatedEvidence.claimId.toString() 
@@ -305,6 +332,10 @@ export async function POST(request: NextRequest) {
           description: (populatedEvidence.claimId as any).description,
         } as any,
       },
+      claim: updatedClaim ? {
+        id: updatedClaim._id.toString(),
+        totalScore: updatedClaim.totalScore || 0,
+      } : undefined,
     }, { 
       status: 201,
       headers: {
@@ -312,7 +343,6 @@ export async function POST(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Create evidence error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Failed to create evidence'
     
     // Always return JSON, even on errors

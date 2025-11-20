@@ -135,7 +135,6 @@ export const useAuthStore = create<AuthState>()(
             error: null,
           })
         } catch (error) {
-          console.error('Logout error:', error)
           // Clear state even if API call fails
           set({
             user: null,
@@ -171,7 +170,6 @@ export const useAuthStore = create<AuthState>()(
             })
           }
         } catch (error) {
-          console.error('Session check error:', error)
           set({
             user: null,
             token: null,

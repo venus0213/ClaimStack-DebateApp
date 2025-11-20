@@ -58,7 +58,6 @@ export default function ProfilePage() {
           throw new Error(data.error || 'Failed to fetch claims')
         }
       } catch (err) {
-        console.error('Error fetching claims:', err)
         setError(err instanceof Error ? err.message : 'An error occurred')
         setClaims([])
       } finally {
