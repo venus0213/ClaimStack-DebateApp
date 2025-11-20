@@ -223,7 +223,6 @@ export async function PATCH(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Update profile error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Failed to update profile'
     
     return NextResponse.json(

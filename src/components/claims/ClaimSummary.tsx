@@ -10,7 +10,7 @@ interface ClaimSummaryProps {
 
 export const ClaimSummary: React.FC<ClaimSummaryProps> = ({ forSummary, againstSummary }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 pt-10">
       {/* For Summary */}
       <Card className="p-4 sm:p-6 bg-[#E9F2FF] border-[#1066DE] rounded-2xl sm:rounded-3xl">
         <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 mb-2">

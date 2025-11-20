@@ -48,9 +48,7 @@ export async function POST(request: NextRequest) {
       success: true,
       data: uploadResult,
     })
-  } catch (error) {
-    console.error('Upload error:', error)
-    
+  } catch (error) {    
     // Extract error message with more details
     let errorMessage = 'Failed to upload file'
     if (error instanceof Error) {

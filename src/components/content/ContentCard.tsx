@@ -1,62 +1,142 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import Link from 'next/link'
-import { Claim, Evidence } from '@/lib/types'
+import { Claim, Evidence, Perspective } from '@/lib/types'
+import type { Evidence as EvidenceType, Perspective as PerspectiveType } from '@/lib/types'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { VoteButtons } from '@/components/voting/VoteButtons'
 import { ShareIcon, UserIcon } from '@/components/ui/Icons'
-import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { ProtectedLink } from '@/components/ui/ProtectedLink'
+import { useVote } from '@/hooks/useVote'
+import { useFollow } from '@/hooks/useFollow'
 
 interface ContentCardProps {
-  item: Claim | Evidence
+  item: Claim | Evidence | Perspective
   onFollow?: (itemId: string) => void
   onVote?: (itemId: string, voteType: 'upvote' | 'downvote') => void
   userVote?: 'upvote' | 'downvote' | null
   isFollowing?: boolean
   href?: string
+  claimId?: string // For evidence/perspective to update claim score
 }
 
 // Type guard to check if item is Evidence
-function isEvidence(item: Claim | Evidence): item is Evidence {
-  return 'upvotes' in item && 'downvotes' in item && 'position' in item
+function isEvidence(item: Claim | Evidence | Perspective): item is Evidence {
+  return 'upvotes' in item && 'downvotes' in item && 'position' in item && 'type' in item
+}
+
+// Type guard to check if item is Perspective
+function isPerspective(item: Claim | Evidence | Perspective): item is Perspective {
+  return 'upvotes' in item && 'downvotes' in item && 'position' in item && 'body' in item && !('type' in item)
 }
 
 export const ContentCard: React.FC<ContentCardProps> = ({
   item,
   onFollow,
   onVote,
-  userVote,
-  isFollowing = false,
+  userVote: propUserVote,
+  isFollowing: propIsFollowing,
   href,
+  claimId,
 }) => {
-  const { requireAuth } = useRequireAuth()
   const isEvidenceItem = isEvidence(item)
+  const isPerspectiveItem = isPerspective(item)
+  const isClaimItem = !isEvidenceItem && !isPerspectiveItem
   const title = item.title || ''
-  const description = item.description
+  const description = isPerspectiveItem ? item.body : (isEvidenceItem ? item.description : item.description)
   const user = item.user
   const itemId = item.id
+
+  // Determine item type for hooks
+  const itemType = isClaimItem ? 'claim' : isEvidenceItem ? 'evidence' : 'perspective'
+  
+  // Get claimId from item if not provided
+  const effectiveClaimId = claimId || (isEvidenceItem ? (item as Evidence).claimId : isPerspectiveItem ? (item as Perspective).claimId : undefined)
+
+  // Get initial values from item
+  const initialUpvotes = isClaimItem 
+    ? (item as Claim).upvotes || 0
+    : (isEvidenceItem || isPerspectiveItem) 
+    ? item.upvotes || 0
+    : 0
+  const initialDownvotes = isClaimItem 
+    ? (item as Claim).downvotes || 0
+    : (isEvidenceItem || isPerspectiveItem) 
+    ? item.downvotes || 0
+    : 0
+  const initialUserVote = propUserVote !== undefined 
+    ? propUserVote 
+    : (isClaimItem
+      ? (item as Claim).userVote || null
+      : (isEvidenceItem || isPerspectiveItem) 
+      ? (item as Evidence | Perspective).userVote || null
+      : null)
+  const initialIsFollowing = propIsFollowing !== undefined
+    ? propIsFollowing
+    : (isClaimItem
+      ? false // Claims don't have isFollowing in the type
+      : (item as Evidence | Perspective).isFollowing || false)
+  const initialFollowCount = isClaimItem
+    ? (item as Claim).followCount || 0
+    : (item as Evidence | Perspective).followCount || 0
+
+  // Use global state hooks
+  const { upvotes, downvotes, userVote, isVoting, vote } = useVote({
+    itemId,
+    itemType,
+    currentUpvotes: initialUpvotes,
+    currentDownvotes: initialDownvotes,
+    currentUserVote: initialUserVote,
+    claimId: effectiveClaimId,
+  })
+
+  const { isFollowing, followCount, isFollowingAction, toggleFollow } = useFollow({
+    itemId,
+    itemType,
+    currentIsFollowing: initialIsFollowing,
+    currentFollowCount: initialFollowCount,
+  })
+
+  // Sync with props if they change (for external control)
+  useEffect(() => {
+    if (propUserVote !== undefined && propUserVote !== userVote) {
+      // The hook will handle this through its internal state
+    }
+  }, [propUserVote, userVote])
+
+  // Determine card type for display
+  const cardType = isEvidenceItem ? 'Evidence' : isPerspectiveItem ? 'Perspective' : ''
+  const cardTypeColor = isEvidenceItem 
+    ? 'bg-blue-100 text-blue-700' 
+    : isPerspectiveItem 
+    ? 'bg-purple-100 text-purple-700' 
+    : ''
 
   // For claims, use the provided href or default to /claims/{id}
   // For evidence, don't make title clickable unless href is provided
   const titleHref = href || (isEvidenceItem ? undefined : `/claims/${itemId}`)
 
-  // Get vote counts - evidence has them, claims default to 0
-  const upvotes = isEvidenceItem ? item.upvotes : 0
-  const downvotes = isEvidenceItem ? item.downvotes : 0
-
-  const handleFollow = () => {
-    requireAuth(() => {
-      onFollow?.(itemId)
-    })
+  const handleVote = async (voteType: 'upvote' | 'downvote') => {
+    try {
+      await vote(voteType)
+      // Call optional callback
+      onVote?.(itemId, voteType)
+    } catch (error) {
+      // Error is already handled in the hook
+      throw error
+    }
   }
 
-  const handleVote = (voteType: 'upvote' | 'downvote') => {
-    requireAuth(() => {
-      onVote?.(itemId, voteType)
-    })
+  const handleFollow = async () => {
+    try {
+      await toggleFollow()
+      // Call optional callback
+      onFollow?.(itemId)
+    } catch (error) {
+      // Error is already handled in the hook
+    }
   }
 
   return (
@@ -65,9 +145,14 @@ export const ContentCard: React.FC<ContentCardProps> = ({
         <div className="flex items-center space-x-2">
           <span className="text-xs sm:text-sm text-[#030303] font-medium">@{user?.username || 'user'}</span>
         </div>
-        <button className="text-gray-400 hover:text-gray-600 transition-colors p-1">  
-          <ShareIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-        </button>
+        <div className='flex items-center space-x-2'>
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${cardTypeColor}`}>
+            {cardType}
+          </span>
+          {/* <button className="text-gray-400 hover:text-gray-600 transition-colors p-1">  
+            <ShareIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+          </button> */}
+        </div>
       </div>
 
       {title && (
@@ -104,6 +189,7 @@ export const ContentCard: React.FC<ContentCardProps> = ({
             variant="secondary"
             size="sm"
             onClick={handleFollow}
+            disabled={isFollowingAction}
             className="bg-black text-white hover:bg-gray-800 rounded-full text-xs sm:text-sm px-3 sm:px-4 flex-shrink-0"
           >
             {isFollowing ? 'Following' : 'Follow'}
@@ -114,6 +200,7 @@ export const ContentCard: React.FC<ContentCardProps> = ({
             downvotes={downvotes}
             userVote={userVote}
             onVote={handleVote}
+            disabled={isVoting}
           />
         </div>
       </div>

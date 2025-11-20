@@ -85,15 +85,20 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
     })),
 
   updateClaim: (id, updates) =>
-    set((state) => ({
-      claims: state.claims.map((claim) =>
+    set((state) => {
+      const updatedClaims = state.claims.map((claim) =>
         claim.id === id ? { ...claim, ...updates } : claim
-      ),
-      currentClaim:
+      )
+      const updatedCurrentClaim =
         state.currentClaim?.id === id
           ? { ...state.currentClaim, ...updates }
-          : state.currentClaim,
-    })),
+          : state.currentClaim
+      
+      return {
+        claims: updatedClaims,
+        currentClaim: updatedCurrentClaim,
+      }
+    }),
 
   removeClaim: (id) =>
     set((state) => ({

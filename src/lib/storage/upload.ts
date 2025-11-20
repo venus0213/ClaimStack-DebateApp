@@ -127,9 +127,7 @@ async function uploadToSupabase(file: File, folder: string): Promise<UploadResul
     if (error instanceof Error) {
       throw error
     }
-    
     // Handle unexpected error types
-    console.error('Unexpected upload error:', error)
     throw new Error(`Failed to upload file: ${String(error)}`)
   }
 }

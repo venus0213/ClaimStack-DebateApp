@@ -25,6 +25,7 @@ export interface IPerspective extends Document {
   upvotes: number
   downvotes: number
   score: number
+  followCount: number
   createdAt: Date
   updatedAt: Date
 }
@@ -92,6 +93,10 @@ const PerspectiveSchema = new Schema<IPerspective>(
       default: 0,
     },
     score: {
+      type: Number,
+      default: 0,
+    },
+    followCount: {
       type: Number,
       default: 0,
     },

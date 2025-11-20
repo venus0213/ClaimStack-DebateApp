@@ -17,6 +17,10 @@ export interface IClaim extends Document {
   againstSummary?: string
   summaryUpdatedAt?: Date
   viewCount: number
+  followCount: number
+  totalScore: number
+  upvotes: number
+  downvotes: number
   url?: string
   fileUrl?: string
   fileName?: string
@@ -60,6 +64,22 @@ const ClaimSchema = new Schema<IClaim>(
       type: Date,
     },
     viewCount: {
+      type: Number,
+      default: 0,
+    },
+    followCount: {
+      type: Number,
+      default: 0,
+    },
+    totalScore: {
+      type: Number,
+      default: 0,
+    },
+    upvotes: {
+      type: Number,
+      default: 0,
+    },
+    downvotes: {
       type: Number,
       default: 0,
     },
