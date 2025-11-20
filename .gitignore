@@ -17,7 +17,6 @@ node_modules/
 # Misc
 .DS_Store
 *.pem
-.env
 
 # Debug
 npm-debug.log*
