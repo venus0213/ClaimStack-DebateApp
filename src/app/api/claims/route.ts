@@ -8,6 +8,7 @@ import { Flag } from '@/lib/db/models'
 import { uploadFile } from '@/lib/storage/upload'
 import { fetchOEmbed } from '@/lib/oembed/client'
 import { updateClaimScore } from '@/lib/utils/claimScore'
+import { generateClaimSummary, generateEvidenceSummary } from '@/lib/ai/summarize'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -340,6 +341,30 @@ export async function POST(request: NextRequest) {
           } catch (error) {
             console.error('Failed to fetch oEmbed data:', error)
           }
+        } else if (evidenceUrl.includes('tiktok.com')) {
+          evidenceTypeEnum = EvidenceType.TIKTOK
+          try {
+            const oembedData = await fetchOEmbed(evidenceUrl)
+            metadata = {
+              title: oembedData.title,
+              provider: oembedData.provider,
+            }
+            evidenceData.title = oembedData.title || undefined
+          } catch (error) {
+            console.error('Failed to fetch oEmbed data:', error)
+          }
+        } else if (evidenceUrl.includes('instagram.com')) {
+          evidenceTypeEnum = EvidenceType.INSTAGRAM
+          try {
+            const oembedData = await fetchOEmbed(evidenceUrl)
+            metadata = {
+              title: oembedData.title,
+              provider: oembedData.provider,
+            }
+            evidenceData.title = oembedData.title || undefined
+          } catch (error) {
+            console.error('Failed to fetch oEmbed data:', error)
+          }
         } else {
           evidenceTypeEnum = EvidenceType.URL
           try {
@@ -363,7 +388,7 @@ export async function POST(request: NextRequest) {
 
       // Create evidence if we have valid data
       if (evidenceData.type) {
-        await Evidence.create(evidenceData)
+        const createdEvidence = await Evidence.create(evidenceData)
         
         // Update claim score since evidence is auto-approved
         try {
@@ -372,7 +397,63 @@ export async function POST(request: NextRequest) {
           console.error('Error updating claim score after evidence creation:', error)
           // Don't fail the request if score update fails
         }
+
+        // Generate AI summary for evidence (async, non-blocking)
+        if (process.env.OPENAI_API_KEY) {
+          generateEvidenceSummary({
+            type: evidenceData.type.toLowerCase() as 'url' | 'file' | 'youtube' | 'tiktok' | 'instagram' | 'tweet' | 'text',
+            title: evidenceData.title,
+            description: evidenceData.description,
+            url: evidenceData.url,
+            fileUrl: evidenceData.fileUrl,
+            fileName: evidenceData.fileName,
+            fileType: evidenceData.fileType,
+            position: evidenceData.position.toLowerCase() as 'for' | 'against',
+            claimTitle: title,
+          })
+            .then(async (summary) => {
+              try {
+                await Evidence.findByIdAndUpdate(createdEvidence._id, {
+                  aiSummary: summary,
+                  summaryUpdatedAt: new Date(),
+                })
+              } catch (dbError) {
+                console.error('Error saving evidence summary to database:', dbError)
+              }
+            })
+            .catch((error) => {
+              console.warn('Evidence summary generation completed with fallback or error:', error?.message || 'Unknown error')
+            })
+        }
       }
+    }
+
+    // Generate AI summary for claim (async, non-blocking)
+    if (process.env.OPENAI_API_KEY && (url || fileUrl)) {
+      generateClaimSummary({
+        title,
+        description,
+        url,
+        fileUrl,
+        fileName,
+        fileType,
+      })
+        .then(async (summary) => {
+          try {
+            // For now, we'll store it in forSummary if it's a general summary
+            // You might want to adjust this based on your needs
+            await Claim.findByIdAndUpdate(claim._id, {
+              forSummary: summary,
+              summaryUpdatedAt: new Date(),
+            })
+          } catch (dbError) {
+            console.error('Error saving claim summary to database:', dbError)
+          }
+        })
+        .catch((error) => {
+          // Error is already handled in generateClaimSummary, just log here
+          console.warn('Claim summary generation completed with fallback or error:', error?.message || 'Unknown error')
+        })
     }
 
     // Populate claim with user and category

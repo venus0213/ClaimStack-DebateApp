@@ -397,8 +397,7 @@ export default function ClaimDetailPage() {
           {/* Summaries */}
           {isSummariesExpanded && claim && (
             <ClaimSummary 
-              forSummary={claim.forSummary || ''} 
-              againstSummary={claim.againstSummary || ''} 
+              evidence={evidence}
             />
           )}
         </div>

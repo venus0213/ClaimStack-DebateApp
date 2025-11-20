@@ -5,6 +5,7 @@ import { Claim } from '@/lib/db/models'
 import { Evidence, EvidenceType, Position, EvidenceStatus } from '@/lib/db/models'
 import { fetchOEmbed } from '@/lib/oembed/client'
 import { updateClaimScore } from '@/lib/utils/claimScore'
+import { generateEvidenceSummary } from '@/lib/ai/summarize'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -272,6 +273,52 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error('Error updating claim score after evidence creation:', error)
       // Don't fail the request if score update fails
+    }
+
+    // Generate AI summary for evidence (async, non-blocking)
+    if (process.env.OPENAI_API_KEY) {
+      // Determine evidence type for summary generation
+      let evidenceTypeForSummary: 'url' | 'file' | 'youtube' | 'tiktok' | 'instagram' | 'tweet' | 'text' = 'text'
+      
+      if (evidenceData.type === EvidenceType.URL) {
+        evidenceTypeForSummary = 'url'
+      } else if (evidenceData.type === EvidenceType.FILE) {
+        evidenceTypeForSummary = 'file'
+      } else if (evidenceData.type === EvidenceType.YOUTUBE) {
+        evidenceTypeForSummary = 'youtube'
+      } else if (evidenceData.type === EvidenceType.TIKTOK) {
+        evidenceTypeForSummary = 'tiktok'
+      } else if (evidenceData.type === EvidenceType.INSTAGRAM) {
+        evidenceTypeForSummary = 'instagram'
+      } else if (evidenceData.type === EvidenceType.TWEET) {
+        evidenceTypeForSummary = 'tweet'
+      }
+
+      generateEvidenceSummary({
+        type: evidenceTypeForSummary,
+        title: evidenceData.title,
+        description: evidenceData.description,
+        url: evidenceData.url,
+        fileUrl: evidenceData.fileUrl,
+        fileName: evidenceData.fileName,
+        fileType: evidenceData.fileType,
+        position: evidenceData.position.toLowerCase() as 'for' | 'against',
+        claimTitle: claim.title,
+      })
+        .then(async (summary) => {
+          try {
+            await Evidence.findByIdAndUpdate(evidence._id, {
+              aiSummary: summary,
+              summaryUpdatedAt: new Date(),
+            })
+          } catch (dbError) {
+            console.error('Error saving evidence summary to database:', dbError)
+          }
+        })
+        .catch((error) => {
+          // Error is already handled in generateEvidenceSummary, just log here
+          console.warn('Evidence summary generation completed with fallback or error:', error?.message || 'Unknown error')
+        })
     }
 
     // Populate evidence with user and claim

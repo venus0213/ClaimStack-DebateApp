@@ -65,8 +65,9 @@ export async function GET(request: NextRequest) {
       sortOption = { upvotes: -1 }
     }
 
-    // Fetch evidence
+    // Fetch evidence - explicitly include aiSummary field
     const evidenceDocs = await Evidence.find(query)
+      .select('+aiSummary') // Explicitly include aiSummary
       .sort(sortOption)
       .populate('userId', 'username email firstName lastName avatarUrl role createdAt')
       .populate('claimId', 'title')
@@ -136,6 +137,7 @@ export async function GET(request: NextRequest) {
         downvotes: doc.downvotes || 0,
         score: doc.score || 0,
         followCount: doc.followCount || 0,
+        aiSummary: doc.aiSummary ?? null,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
         userVote: userVotes.get(doc._id.toString()) || null,

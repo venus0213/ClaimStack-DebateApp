@@ -63,6 +63,7 @@ export interface Evidence {
   downvotes: number
   score: number
   followCount?: number
+  aiSummary?: string
   createdAt: Date
   updatedAt: Date
   user?: User

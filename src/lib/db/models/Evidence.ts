@@ -40,6 +40,8 @@ export interface IEvidence extends Document {
   downvotes: number
   score: number
   followCount: number
+  aiSummary?: string
+  summaryUpdatedAt?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -113,6 +115,12 @@ const EvidenceSchema = new Schema<IEvidence>(
     followCount: {
       type: Number,
       default: 0,
+    },
+    aiSummary: {
+      type: String,
+    },
+    summaryUpdatedAt: {
+      type: Date,
     },
   },
   {

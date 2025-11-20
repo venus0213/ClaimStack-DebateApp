@@ -10,6 +10,7 @@ export interface OEmbedData {
   html?: string
   width?: number
   height?: number
+  author?: string
 }
 
 export async function fetchOEmbed(url: string): Promise<OEmbedData> {
@@ -38,23 +39,60 @@ function detectProvider(url: string): string {
 }
 
 async function fetchYouTubeOEmbed(url: string): Promise<OEmbedData> {
-  // TODO: Implement YouTube oEmbed
-  // const videoId = extractYouTubeId(url)
-  // const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`)
+  try {
+    const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
+    const response = await fetch(oembedUrl, { signal: AbortSignal.timeout(5000) })
+    
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        type: 'video',
+        title: data.title || 'YouTube Video',
+        url,
+        provider: 'youtube',
+        thumbnail: data.thumbnail_url,
+        width: data.width,
+        height: data.height,
+        html: data.html,
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch YouTube oEmbed:', error)
+  }
   
+  // Fallback
   return {
     type: 'video',
     title: 'YouTube Video',
     url,
     provider: 'youtube',
-    thumbnail: 'https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg',
   }
 }
 
 async function fetchTikTokOEmbed(url: string): Promise<OEmbedData> {
-  // TODO: Implement TikTok oEmbed
-  // TikTok requires special handling - may need their embed API
+  try {
+    const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
+    const response = await fetch(oembedUrl, { signal: AbortSignal.timeout(5000) })
+    
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        type: 'video',
+        title: data.title || 'TikTok Video',
+        url,
+        provider: 'tiktok',
+        thumbnail: data.thumbnail_url,
+        width: data.width,
+        height: data.height,
+        html: data.html,
+        author: data.author_name,
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch TikTok oEmbed:', error)
+  }
   
+  // Fallback
   return {
     type: 'video',
     title: 'TikTok Video',
@@ -64,9 +102,31 @@ async function fetchTikTokOEmbed(url: string): Promise<OEmbedData> {
 }
 
 async function fetchInstagramOEmbed(url: string): Promise<OEmbedData> {
-  // TODO: Implement Instagram oEmbed
-  // Instagram requires access token for oEmbed API
+  try {
+    // Instagram oEmbed requires access token, but we can try without it for basic info
+    // Note: Instagram oEmbed API may require authentication
+    const oembedUrl = `https://api.instagram.com/oembed?url=${encodeURIComponent(url)}`
+    const response = await fetch(oembedUrl, { signal: AbortSignal.timeout(5000) })
+    
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        type: 'rich',
+        title: data.title || 'Instagram Post',
+        url,
+        provider: 'instagram',
+        thumbnail: data.thumbnail_url,
+        width: data.width,
+        height: data.height,
+        html: data.html,
+        author: data.author_name,
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch Instagram oEmbed:', error)
+  }
   
+  // Fallback
   return {
     type: 'rich',
     title: 'Instagram Post',
@@ -76,9 +136,28 @@ async function fetchInstagramOEmbed(url: string): Promise<OEmbedData> {
 }
 
 async function fetchTwitterOEmbed(url: string): Promise<OEmbedData> {
-  // TODO: Implement Twitter/X oEmbed
-  // const response = await fetch(`https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`)
+  try {
+    const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`
+    const response = await fetch(oembedUrl, { signal: AbortSignal.timeout(5000) })
+    
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        type: 'rich',
+        title: data.title || 'Tweet',
+        url,
+        provider: 'twitter',
+        width: data.width,
+        height: data.height,
+        html: data.html,
+        author: data.author_name,
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch Twitter oEmbed:', error)
+  }
   
+  // Fallback
   return {
     type: 'rich',
     title: 'Tweet',
@@ -90,19 +169,43 @@ async function fetchTwitterOEmbed(url: string): Promise<OEmbedData> {
 async function fetchGenericOEmbed(url: string): Promise<OEmbedData> {
   // Try to fetch Open Graph metadata
   try {
-    // TODO: Fetch page and extract OG tags
-    // const response = await fetch(url)
-    // const html = await response.text()
-    // Extract og:title, og:description, og:image, etc.
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+      signal: AbortSignal.timeout(5000),
+    })
     
-    return {
-      type: 'link',
-      title: 'Link',
-      url,
-      provider: 'generic',
+    if (response.ok) {
+      const html = await response.text()
+      
+      // Extract Open Graph metadata
+      const titleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
+                        html.match(/<title[^>]*>([^<]+)<\/title>/i)
+      const descMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
+                       html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
+      const imageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+      const typeMatch = html.match(/<meta[^>]*property=["']og:type["'][^>]*content=["']([^"']+)["']/i)
+      
+      return {
+        type: (typeMatch?.[1] === 'video' ? 'video' : typeMatch?.[1] === 'article' ? 'rich' : 'link') as 'video' | 'photo' | 'link' | 'rich',
+        title: titleMatch?.[1] || 'Link',
+        description: descMatch?.[1],
+        thumbnail: imageMatch?.[1],
+        url,
+        provider: 'generic',
+      }
     }
   } catch (error) {
-    throw new Error('Failed to fetch oEmbed data')
+    console.error('Failed to fetch generic oEmbed:', error)
+  }
+  
+  // Fallback
+  return {
+    type: 'link',
+    title: 'Link',
+    url,
+    provider: 'generic',
   }
 }
 

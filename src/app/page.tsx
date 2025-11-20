@@ -61,13 +61,13 @@ export default function HomePage() {
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-[64px] max-w-4xl mx-auto font-bold text-gray-900 mb-3 sm:mb-4 leading-tight sm:leading-[1.5] px-2">
-              Your Claim, Strengthened By Collective Evidence.
+              Shape the Arguments That Shape the World
             </h1>
             <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-600 mb-6 sm:mb-8 px-4">
-              Join Us... Choose A Side... <br className="hidden sm:block"/>In The Sea Of Online Debates...
+              Fight back against misinformation. Push truth to the top
             </p>
             <Button variant="primary" size="base" className="border border-blue-300 border-solid rounded-full px-6 sm:px-10" asChild>
-              <ProtectedLink href="/browse">Browse</ProtectedLink>
+              <ProtectedLink href="/browse">Browse and Contribute</ProtectedLink>
             </Button>
           </div>
         </div>
