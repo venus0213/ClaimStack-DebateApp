@@ -113,7 +113,7 @@ export default function HomePage() {
       {/* Claim Feed Section */}
       <section className="py-8 sm:py-12 lg:py-16 relative z-10">
         <div className="w-full px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4 sm:mb-6">Claim Feed</h2>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4 sm:mb-6">Trending</h2>
           <div className="flex flex-row items-center justify-between gap-2 sm:gap-4 mb-6 sm:mb-8 pt-3 sm:pt-5 flex-wrap">
             <div className="flex items-center space-x-2 sm:space-x-4 flex-wrap">
               <Button
