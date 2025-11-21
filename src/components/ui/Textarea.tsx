@@ -21,20 +21,22 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             {label}
           </label>
         )}
-        <textarea
-          ref={ref}
-          id={inputId}
-          maxLength={maxLength}
-          value={value}
-          className={cn(
-            'w-full px-3 sm:px-4 py-2 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none',
-            error
-              ? 'border-red-500 focus:ring-red-500'
-              : 'border-gray-300',
-            className
-          )}
-          {...props}
-        />
+        <div className="relative">
+          <textarea
+            ref={ref}
+            id={inputId}
+            maxLength={maxLength}
+            value={value}
+            className={cn(
+              'w-full px-3 sm:px-4 py-2 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-y pr-8',
+              error
+                ? 'border-red-500 focus:ring-red-500'
+                : 'border-gray-300',
+              className
+            )}
+            {...props}
+          />
+        </div>
         <div className="flex justify-between items-center mt-1 gap-2">
           <div className="flex-1 min-w-0">
             {error && (
