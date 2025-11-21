@@ -88,10 +88,7 @@ export default function SignupPage() {
         {/* Logo - Top Center of Right Side */}
         <div className="flex justify-center pt-6 sm:pt-10 lg:pt-14">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="text-base sm:text-lg font-semibold text-gray-600">C</span>
-            </div>
-            <span className="text-sm sm:text-base font-semibold text-gray-900">ClaimstackAI</span>
+            <span className="text-sm sm:text-base font-semibold text-gray-900">ClaimStack</span>
           </div>
         </div>
 
