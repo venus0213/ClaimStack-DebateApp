@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { LinkIcon } from '@/components/ui/Icons'
+import { fetchOEmbed, type OEmbedData } from '@/lib/oembed/client'
 
 export interface MediaDisplayProps {
   fileUrl?: string
@@ -146,64 +147,193 @@ export const MediaDisplay: React.FC<MediaDisplayProps> = ({
   title = 'Media',
 }) => {
   const [fileError, setFileError] = useState(false)
+  const [oEmbedData, setOEmbedData] = useState<OEmbedData | null>(null)
+  const [oEmbedLoading, setOEmbedLoading] = useState(false)
+  const [oEmbedError, setOEmbedError] = useState(false)
+  const embedContainerRef = useRef<HTMLDivElement>(null)
+  const scriptLoadedRef = useRef<{ [key: string]: boolean }>({})
 
   // Reset file error when fileUrl changes
   useEffect(() => {
     setFileError(false)
   }, [fileUrl])
 
-  // Load embed scripts when URL changes
+  // Fetch oEmbed data when URL changes
   useEffect(() => {
-    if (!url) return
+    if (!url) {
+      setOEmbedData(null)
+      setOEmbedError(false)
+      return
+    }
+
+    const { platform, isEmbeddable } = getPlatformFromUrl(url)
+    
+    // Only fetch oEmbed for TikTok, Instagram, and YouTube
+    if (isEmbeddable && (platform === 'TikTok' || platform === 'Instagram' || platform === 'YouTube')) {
+      setOEmbedLoading(true)
+      setOEmbedError(false)
+      
+      fetchOEmbed(url)
+        .then((data) => {
+          setOEmbedData(data)
+          setOEmbedLoading(false)
+        })
+        .catch((error) => {
+          console.error('Failed to fetch oEmbed:', error)
+          setOEmbedError(true)
+          setOEmbedLoading(false)
+        })
+    } else {
+      setOEmbedData(null)
+    }
+  }, [url])
+
+  // Load embed scripts when oEmbed HTML is available
+  useEffect(() => {
+    if (!oEmbedData?.html || !url) return
 
     const { platform } = getPlatformFromUrl(url)
+    const scriptKey = `${platform}-script`
 
     // Load TikTok embed script
-    if (platform === 'TikTok') {
-      const script = document.createElement('script')
-      script.src = 'https://www.tiktok.com/embed.js'
-      script.async = true
-      document.body.appendChild(script)
-
-      return () => {
-        const existingScript = document.querySelector('script[src="https://www.tiktok.com/embed.js"]')
-        if (existingScript) {
-          document.body.removeChild(existingScript)
+    if (platform === 'TikTok' && oEmbedData.html.includes('tiktok-embed')) {
+      const existingScript = document.querySelector('script[src="https://www.tiktok.com/embed.js"]')
+      if (!existingScript) {
+        const script = document.createElement('script')
+        script.src = 'https://www.tiktok.com/embed.js'
+        script.async = true
+        script.id = 'tiktok-embed-script'
+        script.onload = () => {
+          scriptLoadedRef.current[scriptKey] = true
         }
+        document.body.appendChild(script)
+      } else {
+        scriptLoadedRef.current[scriptKey] = true
       }
     }
 
     // Load Instagram embed script
-    if (platform === 'Instagram') {
-      const script = document.createElement('script')
-      script.src = '//www.instagram.com/embed.js'
-      script.async = true
-      document.body.appendChild(script)
-
-      return () => {
-        const existingScript = document.querySelector('script[src="//www.instagram.com/embed.js"]')
-        if (existingScript) {
-          document.body.removeChild(existingScript)
+    if (platform === 'Instagram' && oEmbedData.html.includes('instagram-media')) {
+      const existingScript = document.querySelector('script[src="//www.instagram.com/embed.js"]')
+      if (!existingScript) {
+        const script = document.createElement('script')
+        script.src = '//www.instagram.com/embed.js'
+        script.async = true
+        script.id = 'instagram-embed-script'
+        script.onload = () => {
+          scriptLoadedRef.current[scriptKey] = true
         }
+        document.body.appendChild(script)
+      } else {
+        scriptLoadedRef.current[scriptKey] = true
       }
     }
 
     // Load Twitter embed script
-    if (platform === 'Twitter/X') {
-      const script = document.createElement('script')
-      script.src = 'https://platform.twitter.com/widgets.js'
-      script.async = true
-      script.charset = 'utf-8'
-      document.body.appendChild(script)
-
-      return () => {
-        const existingScript = document.querySelector('script[src="https://platform.twitter.com/widgets.js"]')
-        if (existingScript) {
-          document.body.removeChild(existingScript)
+    if (platform === 'Twitter/X' && oEmbedData.html.includes('twitter-tweet')) {
+      const existingScript = document.querySelector('script[src="https://platform.twitter.com/widgets.js"]')
+      if (!existingScript) {
+        const script = document.createElement('script')
+        script.src = 'https://platform.twitter.com/widgets.js'
+        script.async = true
+        script.charset = 'utf-8'
+        script.id = 'twitter-embed-script'
+        script.onload = () => {
+          scriptLoadedRef.current[scriptKey] = true
         }
+        document.body.appendChild(script)
+      } else {
+        scriptLoadedRef.current[scriptKey] = true
       }
     }
-  }, [url])
+  }, [oEmbedData, url])
+
+  // Process oEmbed HTML and inject it into the container
+  useEffect(() => {
+    if (!oEmbedData?.html || !embedContainerRef.current || !url) return
+
+    const { platform } = getPlatformFromUrl(url)
+    
+    // Inject the HTML from oEmbed
+    embedContainerRef.current.innerHTML = oEmbedData.html
+    
+    // For TikTok, Instagram, and Twitter, process embeds after HTML injection
+    // The embed scripts will automatically process elements, but we can also manually trigger if needed
+    if (platform === 'TikTok') {
+      // Check if script is already loaded
+      if ((window as any).tiktokEmbed) {
+        try {
+          (window as any).tiktokEmbed.lib.render(embedContainerRef.current)
+        } catch (error) {
+          console.error('Failed to render TikTok embed:', error)
+        }
+      } else {
+        // Wait for script to load
+        const checkTikTokScript = setInterval(() => {
+          if ((window as any).tiktokEmbed) {
+            clearInterval(checkTikTokScript)
+            try {
+              (window as any).tiktokEmbed.lib.render(embedContainerRef.current)
+            } catch (error) {
+              console.error('Failed to render TikTok embed:', error)
+            }
+          }
+        }, 100)
+        
+        // Clear interval after 5 seconds
+        setTimeout(() => clearInterval(checkTikTokScript), 5000)
+      }
+    } else if (platform === 'Instagram') {
+      // Check if script is already loaded
+      if ((window as any).instgrm) {
+        try {
+          (window as any).instgrm.Embeds.process()
+        } catch (error) {
+          console.error('Failed to process Instagram embed:', error)
+        }
+      } else {
+        // Wait for script to load
+        const checkInstagramScript = setInterval(() => {
+          if ((window as any).instgrm) {
+            clearInterval(checkInstagramScript)
+            try {
+              (window as any).instgrm.Embeds.process()
+            } catch (error) {
+              console.error('Failed to process Instagram embed:', error)
+            }
+          }
+        }, 100)
+        
+        // Clear interval after 5 seconds
+        setTimeout(() => clearInterval(checkInstagramScript), 5000)
+      }
+    } else if (platform === 'Twitter/X') {
+      // Check if script is already loaded
+      if ((window as any).twttr && (window as any).twttr.widgets) {
+        try {
+          (window as any).twttr.widgets.load(embedContainerRef.current)
+        } catch (error) {
+          console.error('Failed to load Twitter embed:', error)
+        }
+      } else {
+        // Wait for script to load
+        const checkTwitterScript = setInterval(() => {
+          if ((window as any).twttr && (window as any).twttr.widgets) {
+            clearInterval(checkTwitterScript)
+            try {
+              (window as any).twttr.widgets.load(embedContainerRef.current)
+            } catch (error) {
+              console.error('Failed to load Twitter embed:', error)
+            }
+          }
+        }, 100)
+        
+        // Clear interval after 5 seconds
+        setTimeout(() => clearInterval(checkTwitterScript), 5000)
+      }
+    }
+    // For YouTube, the HTML is already a complete iframe, so no additional processing needed
+  }, [oEmbedData, url])
 
   return (
     <div className="space-y-4 mt-4">
@@ -311,127 +441,123 @@ export const MediaDisplay: React.FC<MediaDisplayProps> = ({
           {(() => {
             const { platform, icon, isEmbeddable } = getPlatformFromUrl(url)
             
-            // YouTube Embed
-            if (platform === 'YouTube' && isEmbeddable) {
-              const videoId = getYouTubeVideoId(url)
-              if (videoId) {
-                return (
-                  <div className="flex flex-col space-y-3">
-                    <div className="flex items-center space-x-2 text-sm text-gray-700 mb-2">
-                      <div className="text-blue-600">{icon}</div>
-                      <span className="font-medium">{platform}</span>
-                    </div>
-                    <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
-                      <iframe
-                        src={`https://www.youtube.com/embed/${videoId}`}
-                        title="YouTube video player"
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                        className="w-full h-full"
-                      />
-                    </div>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 text-xs break-all underline flex items-start space-x-2"
-                    >
-                      <LinkIcon className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                      <span className="break-all">{url}</span>
-                    </a>
+            // Show loading state while fetching oEmbed
+            if (oEmbedLoading && isEmbeddable && (platform === 'TikTok' || platform === 'Instagram' || platform === 'YouTube')) {
+              return (
+                <div className="flex flex-col space-y-3">
+                  <div className="flex items-center space-x-2 text-sm text-gray-700 mb-2">
+                    <div className="text-blue-600">{icon}</div>
+                    <span className="font-medium">{platform}</span>
                   </div>
-                )
-              }
+                  <div className="w-full bg-gray-200 rounded-lg flex items-center justify-center" style={{ minHeight: '400px' }}>
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                      <p className="text-sm text-gray-600">Loading embed...</p>
+                    </div>
+                  </div>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 text-xs break-all underline flex items-start space-x-2"
+                  >
+                    <LinkIcon className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    <span className="break-all">{url}</span>
+                  </a>
+                </div>
+              )
             }
             
-            // TikTok Embed
-            if (platform === 'TikTok' && isEmbeddable) {
-              const videoId = getTikTokVideoId(url)
-              if (videoId) {
-                return (
-                  <div className="flex flex-col space-y-3">
-                    <div className="flex items-center space-x-2 text-sm text-gray-700 mb-2">
-                      <div className="text-blue-600">{icon}</div>
-                      <span className="font-medium">{platform}</span>
-                    </div>
-                    <div className="w-full bg-black rounded-lg overflow-hidden" style={{ minHeight: '500px' }}>
-                      <blockquote
-                        className="tiktok-embed"
-                        cite={url}
-                        data-video-id={videoId}
-                        style={{ maxWidth: '100%', minWidth: '325px' }}
+            // Show oEmbed content for TikTok, Instagram, and YouTube
+            if (oEmbedData && isEmbeddable && (platform === 'TikTok' || platform === 'Instagram' || platform === 'YouTube')) {
+              return (
+                <div className="flex flex-col space-y-3">
+                  <div className="flex items-center space-x-2 text-sm text-gray-700 mb-2">
+                    <div className="text-blue-600">{icon}</div>
+                    <span className="font-medium">{platform}</span>
+                    {oEmbedData.title && (
+                      <span className="text-xs text-gray-500 ml-2">- {oEmbedData.title}</span>
+                    )}
+                  </div>
+                  <div 
+                    ref={embedContainerRef}
+                    className="w-full rounded-lg overflow-hidden flex items-center justify-center"
+                    style={{ 
+                      minHeight: platform === 'YouTube' ? '400px' : platform === 'TikTok' ? '500px' : '400px',
+                      backgroundColor: platform === 'TikTok' ? '#000' : '#fff'
+                    }}
+                  />
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 text-xs break-all underline flex items-start space-x-2"
+                  >
+                    <LinkIcon className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    <span className="break-all">{url}</span>
+                  </a>
+                </div>
+              )
+            }
+            
+            // Show error state if oEmbed failed
+            if (oEmbedError && isEmbeddable && (platform === 'TikTok' || platform === 'Instagram' || platform === 'YouTube')) {
+              // Fallback to manual embed
+              if (platform === 'YouTube') {
+                const videoId = getYouTubeVideoId(url)
+                if (videoId) {
+                  return (
+                    <div className="flex flex-col space-y-3">
+                      <div className="flex items-center space-x-2 text-sm text-gray-700 mb-2">
+                        <div className="text-blue-600">{icon}</div>
+                        <span className="font-medium">{platform}</span>
+                      </div>
+                      <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${videoId}`}
+                          title="YouTube video player"
+                          frameBorder="0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                          className="w-full h-full"
+                        />
+                      </div>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 text-xs break-all underline flex items-start space-x-2"
                       >
-                        <section>
-                          <a
-                            target="_blank"
-                            title={`@${videoId}`}
-                            href={url}
-                            rel="noopener noreferrer"
-                          >
-                            View on TikTok
-                          </a>
-                        </section>
-                      </blockquote>
+                        <LinkIcon className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <span className="break-all">{url}</span>
+                      </a>
                     </div>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 text-xs break-all underline flex items-start space-x-2"
-                    >
-                      <LinkIcon className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                      <span className="break-all">{url}</span>
-                    </a>
-                  </div>
-                )
+                  )
+                }
               }
+              
+              // For TikTok and Instagram, show link if oEmbed fails
+              return (
+                <div className="flex flex-col space-y-3">
+                  <div className="flex items-center space-x-2 text-sm text-gray-700 mb-2">
+                    <div className="text-blue-600">{icon}</div>
+                    <span className="font-medium">{platform}</span>
+                    <span className="text-xs text-red-500 ml-2">(Embed unavailable)</span>
+                  </div>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 text-sm break-all underline flex items-start space-x-2"
+                  >
+                    <LinkIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span className="break-all">{url}</span>
+                  </a>
+                </div>
+              )
             }
             
-            // Instagram Embed
-            if (platform === 'Instagram' && isEmbeddable) {
-              const postId = getInstagramPostId(url)
-              if (postId) {
-                return (
-                  <div className="flex flex-col space-y-3">
-                    <div className="flex items-center space-x-2 text-sm text-gray-700 mb-2">
-                      <div className="text-blue-600">{icon}</div>
-                      <span className="font-medium">{platform}</span>
-                    </div>
-                    <div className="w-full bg-white rounded-lg overflow-hidden flex items-center justify-center" style={{ minHeight: '400px' }}>
-                      <blockquote
-                        className="instagram-media"
-                        data-instgrm-permalink={url}
-                        data-instgrm-version="14"
-                        style={{ background: '#FFF', border: 0, borderRadius: '3px', margin: 1, maxWidth: '100%', minWidth: '326px', padding: 0, width: '99.375%' }}
-                      >
-                        <div style={{ padding: '16px' }}>
-                          <a
-                            href={url}
-                            style={{ background: '#FFFFFF', lineHeight: 0, padding: '0 0', textAlign: 'center', textDecoration: 'none', width: '100%' }}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            View on Instagram
-                          </a>
-                        </div>
-                      </blockquote>
-                    </div>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 text-xs break-all underline flex items-start space-x-2"
-                    >
-                      <LinkIcon className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                      <span className="break-all">{url}</span>
-                    </a>
-                  </div>
-                )
-              }
-            }
-            
-            // Twitter/X Embed
+            // Twitter/X Embed (using existing method)
             if (platform === 'Twitter/X' && isEmbeddable) {
               return (
                 <div className="flex flex-col space-y-3">
