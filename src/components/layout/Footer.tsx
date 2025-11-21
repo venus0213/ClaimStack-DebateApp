@@ -9,8 +9,8 @@ export const Footer: React.FC = () => {
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
           <div>
-            <h3 className="text-white text-base sm:text-lg font-semibold mb-3 sm:mb-4">ClaimstackAI</h3>
-            <p className="text-xs sm:text-sm">© {currentYear} Digital Marketing Schools, LLC.</p>
+            <h3 className="text-white text-base sm:text-lg font-semibold mb-3 sm:mb-4">ClaimStack</h3>
+            <p className="text-xs sm:text-sm">© {currentYear} Digital Marketing School, LLC.</p>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:gap-6">
             <div>

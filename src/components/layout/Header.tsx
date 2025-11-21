@@ -35,7 +35,7 @@ export const Header: React.FC = () => {
           {/* Logo and Navigation */}
           <div className="flex items-center space-x-4 sm:space-x-6 lg:space-x-8">
             <Link href="/" className="flex items-center space-x-2">
-              <span className="text-lg sm:text-xl font-semibold text-gray-900">ClaimstackAI</span>
+              <span className="text-lg sm:text-xl font-semibold text-gray-900">ClaimStack</span>
             </Link>
 
             {/* Navigation Links */}

@@ -7,7 +7,7 @@ import { AuthProvider } from '@/components/providers/AuthProvider'
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'ClaimStack.ai - Evidence-Based Debate Platform',
+  title: 'CS',
   description: 'Join structured, evidence-based debates. Submit claims, add evidence, and let the best arguments win.',
 }
 
