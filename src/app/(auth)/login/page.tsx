@@ -65,7 +65,7 @@ export default function LoginPage() {
         <div className="absolute inset-0 flex items-center justify-center">
           <Image
             src="/images/login.png"
-            alt="ClaimStack AI - Debate Platform"
+            alt="ClaimStack - Debate Platform"
             fill
             className="object-contain"
             priority
@@ -80,10 +80,7 @@ export default function LoginPage() {
         {/* Logo - Top Center of Right Side */}
         <div className="flex justify-center pt-12 lg:pt-20">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="text-base sm:text-lg font-semibold text-gray-600">C</span>
-            </div>
-            <span className="text-base font-semibold text-gray-900">ClaimstackAI</span>
+            <span className="text-base font-semibold text-gray-900">ClaimStack</span>
           </div>
         </div>
 

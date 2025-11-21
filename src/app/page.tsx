@@ -86,7 +86,7 @@ export default function HomePage() {
             <div className="w-full h-[250px] sm:h-[300px] md:h-[350px] rounded-lg flex items-center justify-center relative order-2 md:order-1">
               <Image
                 src="/images/claimstack-mindshare.png"
-                alt="ClaimStack AI - Debate Platform"
+                alt="ClaimStack - Debate Platform"
                 fill
                 className="object-contain"
                 priority

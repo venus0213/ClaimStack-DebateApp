@@ -73,7 +73,7 @@ export default function SignupPage() {
         <div className="absolute inset-0 flex items-center justify-center">
           <Image
             src="/images/login.png"
-            alt="ClaimStack AI - Debate Platform"
+            alt="ClaimStack - Debate Platform"
             fill
             className="object-contain"
             priority

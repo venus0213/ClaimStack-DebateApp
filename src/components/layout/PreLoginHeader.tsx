@@ -56,7 +56,7 @@ export const PreLoginHeader: React.FC = () => {
           <div className="flex items-center space-x-4 sm:space-x-8">
             {/* Logo */}
             <Link href="/" className="flex items-center">
-              <span className="text-lg sm:text-xl font-semibold text-gray-900">ClaimstackAI</span>
+              <span className="text-lg sm:text-xl font-semibold text-gray-900">Claimstack</span>
             </Link>
 
             {/* Desktop Navigation Links */}
