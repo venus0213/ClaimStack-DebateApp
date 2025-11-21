@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { Claim, Evidence, Perspective } from '@/lib/types'
 import type { Evidence as EvidenceType, Perspective as PerspectiveType } from '@/lib/types'
@@ -101,6 +101,20 @@ export const ContentCard: React.FC<ContentCardProps> = ({
 
   // State for description expansion
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
+  const [showReadMore, setShowReadMore] = useState(false)
+  const descriptionRef = useRef<HTMLParagraphElement>(null)
+
+  // Check if description exceeds 2 lines
+  useEffect(() => {
+    if (descriptionRef.current && !isDescriptionExpanded) {
+      const element = descriptionRef.current
+      // Check if scrollHeight is greater than clientHeight (text is truncated)
+      const isTruncated = element.scrollHeight > element.clientHeight
+      setShowReadMore(isTruncated)
+    } else {
+      setShowReadMore(false)
+    }
+  }, [description, isDescriptionExpanded])
 
   // Sync with props if they change (for external control)
   useEffect(() => {
@@ -174,15 +188,35 @@ export const ContentCard: React.FC<ContentCardProps> = ({
 
       {description && (
         <div className="mb-3 sm:mb-4">
-          <p className={`text-gray-600 text-xs sm:text-sm font-normal leading-relaxed ${!isDescriptionExpanded ? 'line-clamp-2' : ''}`}>
-            {description}
-          </p>
-          <button
-            onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-            className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium mt-1 transition-colors"
-          >
-            {isDescriptionExpanded ? 'read less' : 'read more'}
-          </button>
+          <div className="relative">
+            <p 
+              ref={descriptionRef}
+              className={`text-gray-600 text-xs sm:text-sm font-normal leading-relaxed ${!isDescriptionExpanded ? 'line-clamp-2 pr-14' : ''}`}
+            >
+              {description}
+              {isDescriptionExpanded && (
+                <span className="ml-1">
+                  <button
+                    onClick={() => setIsDescriptionExpanded(false)}
+                    className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium transition-colors"
+                  >
+                    read less
+                  </button>
+                </span>
+              )}
+            </p>
+            {!isDescriptionExpanded && showReadMore && (
+              <>
+                <div className="absolute bottom-0 right-0 h-6 w-20 bg-gradient-to-l from-white to-transparent pointer-events-none"></div>
+                <button
+                  onClick={() => setIsDescriptionExpanded(true)}
+                  className="absolute bottom-0 right-0 text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium transition-colors pl-1"
+                >
+                  read more
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
