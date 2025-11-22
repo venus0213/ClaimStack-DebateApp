@@ -218,7 +218,7 @@ export default function ClaimDetailPage() {
           className="inline-flex items-center text-base sm:text-lg lg:text-xl font-semibold text-gray-600 hover:text-gray-900 mb-4 sm:mb-6"
         >
           <Link href="/browse">
-            <ChevronLeftIcon className="w-4 h-4 mr-3 sm:mr-6" />
+            <ChevronLeftIcon className="w-7 h-7 mr-3 sm:mr-6" />
           </Link>
           <span className="hidden sm:inline">Claim Detail Page</span>
           <Link href="/browse">
@@ -229,20 +229,9 @@ export default function ClaimDetailPage() {
         {/* Statement Section */}
         <div className="bg-[#F9F9F9] rounded-2xl sm:rounded-[32px] border border-[#DCDCDC] p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center">
               <h2 className="text-sm sm:text-base font-normal text-[#666666]">Statement</h2>
             </div>
-            <button 
-              className="text-gray-400 hover:text-gray-600 p-1"
-              onClick={() => setIsSummariesExpanded(!isSummariesExpanded)}
-              aria-label="Toggle summaries"
-            >
-              {isSummariesExpanded ? (
-                <ChevronDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              ) : (
-                <ChevronUpIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              )}
-            </button>
           </div>
           <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold text-gray-900 mb-6 sm:mb-10 leading-tight">
             {claim?.title || 'Loading...'}
@@ -373,7 +362,7 @@ export default function ClaimDetailPage() {
               </div>
               
               {/* Action Buttons */}
-              <div className="flex items-center gap-3 sm:gap-4">
+              {/* <div className="flex items-center gap-3 sm:gap-4">
                 <Button
                   variant="secondary"
                   size="sm"
@@ -391,7 +380,18 @@ export default function ClaimDetailPage() {
                   onVote={handleClaimVote}
                   disabled={claimVote.isVoting}
                 />
-              </div>
+              </div> */}
+              <button 
+                className="text-black hover:text-gray-600 p-1"
+                onClick={() => setIsSummariesExpanded(!isSummariesExpanded)}
+                aria-label="Toggle summaries"
+              >
+                {isSummariesExpanded ? (
+                  <ChevronUpIcon className="w-5 h-5 sm:w-7 sm:h-7" />
+                ) : (
+                  <ChevronDownIcon className="w-5 h-5 sm:w-7 sm:h-7" />
+                )}
+              </button>
             </div>
           </div>
           {/* Summaries */}

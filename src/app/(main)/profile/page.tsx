@@ -124,7 +124,7 @@ export default function ProfilePage() {
             href="/browse"
             className="inline-flex text-base sm:text-lg lg:text-xl items-center font-semibold text-[#030303] hover:text-gray-900"
           >
-            <ChevronLeftIcon className="w-4 h-4 mr-3 sm:mr-6" />
+            <ChevronLeftIcon className="w-7 h-7 mr-3 sm:mr-6" />
             <span className="hidden sm:inline">Profile</span>
             <span className="sm:hidden">Back</span>
           </Link>
