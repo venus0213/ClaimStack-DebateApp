@@ -14,14 +14,16 @@ export async function GET(request: NextRequest) {
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const claimId = searchParams.get('claimId')
+    const userId = searchParams.get('userId')
     const position = searchParams.get('position') as 'for' | 'against' | null
     const sort = searchParams.get('sort') || 'recent'
 
-    if (!claimId) {
+    // Either claimId or userId must be provided
+    if (!claimId && !userId) {
       return NextResponse.json(
         { 
           success: false,
-          error: 'Claim ID is required',
+          error: 'Either Claim ID or User ID is required',
           perspectives: []
         },
         { 
@@ -31,8 +33,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Validate claim ID format
-    if (!mongoose.Types.ObjectId.isValid(claimId)) {
+    // Validate claim ID format if provided
+    if (claimId && !mongoose.Types.ObjectId.isValid(claimId)) {
       return NextResponse.json(
         { 
           success: false,
@@ -46,11 +48,33 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Validate user ID format if provided
+    if (userId && !mongoose.Types.ObjectId.isValid(userId)) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Invalid user ID format',
+          perspectives: []
+        },
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
     // Build query
     const query: any = {
-      claimId: new mongoose.Types.ObjectId(claimId),
       // Show both approved and pending perspectives
       status: { $in: [PerspectiveStatus.APPROVED, PerspectiveStatus.PENDING] },
+    }
+
+    if (claimId) {
+      query.claimId = new mongoose.Types.ObjectId(claimId)
+    }
+
+    if (userId) {
+      query.userId = new mongoose.Types.ObjectId(userId)
     }
 
     if (position) {
