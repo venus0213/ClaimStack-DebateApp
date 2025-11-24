@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ContentCard } from '@/components/content/ContentCard'
-import { Claim, User } from '@/lib/types'
+import { Claim, Evidence, Perspective, User } from '@/lib/types'
 import { ChevronLeftIcon, EditIcon, LogoutIcon } from '@/components/ui/Icons'
 import { useAuth } from '@/hooks/useAuth'
 import { ProfileEditModal } from '@/components/profile/ProfileEditModal'
@@ -20,52 +20,92 @@ export default function ProfilePage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('claims')
   const { user, loading: authLoading, logout: logoutUser, checkSession } = useAuth()
-  const [claims, setClaims] = useState<Claim[]>([])
+  const [allPosts, setAllPosts] = useState<(Claim | Evidence | Perspective)[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-  // Fetch user's claims
-  useEffect(() => {
-    const fetchClaims = async () => {
-      if (!user?.id) {
-        setLoading(false)
-        return
-      }
-
-      try {
-        setLoading(true)
-        setError(null)
-        
-        const params = new URLSearchParams({
-          userId: user.id,
-          sortBy: 'newest',
-          limit: '100', // Fetch all user's claims
-        })
-
-        const response = await fetch(`/api/claims?${params.toString()}`, {
-          credentials: 'include',
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch claims')
-        }
-
-        const data = await response.json()
-        if (data.success) {
-          setClaims(data.claims || [])
-        } else {
-          throw new Error(data.error || 'Failed to fetch claims')
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred')
-        setClaims([])
-      } finally {
-        setLoading(false)
-      }
+  // Fetch user's posts (claims, evidence, perspectives)
+  const fetchAllPosts = async () => {
+    if (!user?.id) {
+      setLoading(false)
+      return
     }
 
-    fetchClaims()
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Fetch claims
+      const claimsParams = new URLSearchParams({
+        userId: user.id,
+        sortBy: 'newest',
+        limit: '100',
+      })
+      const claimsResponse = await fetch(`/api/claims?${claimsParams.toString()}`, {
+        credentials: 'include',
+      })
+      
+      // Fetch evidence
+      const evidenceParams = new URLSearchParams({
+        userId: user.id,
+      })
+      const evidenceResponse = await fetch(`/api/evidence?${evidenceParams.toString()}`, {
+        credentials: 'include',
+      })
+      
+      // Fetch perspectives
+      const perspectivesParams = new URLSearchParams({
+        userId: user.id,
+      })
+      const perspectivesResponse = await fetch(`/api/perspectives?${perspectivesParams.toString()}`, {
+        credentials: 'include',
+      })
+
+      const allPostsArray: (Claim | Evidence | Perspective)[] = []
+
+      // Process claims
+      if (claimsResponse.ok) {
+        const claimsData = await claimsResponse.json()
+        if (claimsData.success && claimsData.claims) {
+          allPostsArray.push(...claimsData.claims)
+        }
+      }
+
+      // Process evidence
+      if (evidenceResponse.ok) {
+        const evidenceData = await evidenceResponse.json()
+        if (evidenceData.success && evidenceData.evidence) {
+          allPostsArray.push(...evidenceData.evidence)
+        }
+      }
+
+      // Process perspectives
+      if (perspectivesResponse.ok) {
+        const perspectivesData = await perspectivesResponse.json()
+        if (perspectivesData.success && perspectivesData.perspectives) {
+          allPostsArray.push(...perspectivesData.perspectives)
+        }
+      }
+
+      // Sort by creation date (most recent first)
+      allPostsArray.sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime()
+        const dateB = new Date(b.createdAt).getTime()
+        return dateB - dateA
+      })
+
+      setAllPosts(allPostsArray)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      setAllPosts([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchAllPosts()
   }, [user?.id])
 
   const logout = async () => {
@@ -187,16 +227,16 @@ export default function ProfilePage() {
           <>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="text-gray-600">Loading claims...</div>
+                <div className="text-gray-600">Loading posts...</div>
               </div>
             ) : error ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-red-600">Error: {error}</div>
               </div>
-            ) : claims.length === 0 ? (
+            ) : allPosts.length === 0 ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
-                  <p className="text-gray-600 mb-4">No claims yet</p>
+                  <p className="text-gray-600 mb-4">No posts yet</p>
                   <Link
                     href="/create"
                     className="text-blue-600 hover:text-blue-800 underline"
@@ -207,8 +247,37 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="mt-6 sm:mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                {claims.map((claim) => (
-                  <ContentCard key={claim.id} item={claim} />
+                {allPosts.map((post) => (
+                  <ContentCard 
+                    key={post.id} 
+                    item={post} 
+                    showDelete={true}
+                    onDelete={async (itemId: string, itemType: 'claim' | 'evidence' | 'perspective') => {
+                      try {
+                        const endpoint = itemType === 'claim' 
+                          ? `/api/claims/${itemId}`
+                          : itemType === 'evidence'
+                          ? `/api/evidence/${itemId}`
+                          : `/api/perspectives/${itemId}`
+                        
+                        const response = await fetch(endpoint, {
+                          method: 'DELETE',
+                          credentials: 'include',
+                        })
+
+                        if (!response.ok) {
+                          const data = await response.json()
+                          throw new Error(data.error || 'Failed to delete')
+                        }
+
+                        // Refresh the list to show updated data
+                        await fetchAllPosts()
+                      } catch (err) {
+                        console.error('Delete error:', err)
+                        alert(err instanceof Error ? err.message : 'Failed to delete post')
+                      }
+                    }}
+                  />
                 ))}
               </div>
             )}

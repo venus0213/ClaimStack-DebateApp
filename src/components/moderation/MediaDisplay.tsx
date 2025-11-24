@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { LinkIcon } from '@/components/ui/Icons'
+import { LinkIcon, PdfIcon } from '@/components/ui/Icons'
 import { fetchOEmbed, type OEmbedData } from '@/lib/oembed/client'
 
 export interface MediaDisplayProps {
@@ -55,6 +55,13 @@ const formatFileSize = (bytes?: number): string => {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+}
+
+// Helper function to check if URL is a PDF
+const isPdfUrl = (url?: string): boolean => {
+  if (!url) return false
+  const lowerUrl = url.toLowerCase()
+  return lowerUrl.endsWith('.pdf') || lowerUrl.includes('.pdf?') || lowerUrl.includes('.pdf#')
 }
 
 // Helper function to extract YouTube video ID
@@ -388,6 +395,38 @@ export const MediaDisplay: React.FC<MediaDisplayProps> = ({
             )
           }
           
+          // PDF files - display in iframe
+          if (fileCategory === 'document' && (fileType?.toLowerCase().includes('pdf') || fileName?.toLowerCase().endsWith('.pdf') || isPdfUrl(fileUrl))) {
+            return (
+              <div className="w-full h-[100px] bg-gray-200 rounded-lg overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between p-3 bg-gray-100 border-b border-gray-300">
+                  <div className="flex items-center gap-2">
+                    <PdfIcon className="w-5 h-5 text-red-600" />
+                    {fileName && (
+                      <span className="text-sm font-medium text-gray-700">{fileName}</span>
+                    )}
+                    {fileSize && (
+                      <span className="text-xs text-gray-500">({formatFileSize(fileSize)})</span>
+                    )}
+                  </div>
+                  <a
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 text-xs font-medium underline"
+                  >
+                    Open in new tab
+                  </a>
+                </div>
+                <iframe
+                  src={fileUrl}
+                  className="w-full flex-1 border-0"
+                  title={fileName || 'PDF Document'}
+                />
+              </div>
+            )
+          }
+          
           // Document or other file types
           return (
             <div className="w-full bg-gray-200 rounded-lg p-6">
@@ -439,6 +478,45 @@ export const MediaDisplay: React.FC<MediaDisplayProps> = ({
       {url && (
         <div className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4">
           {(() => {
+            // Check if URL is a PDF
+            if (isPdfUrl(url)) {
+              return (
+                <div className="flex flex-col space-y-3">
+                  <div className="flex items-center space-x-2 text-sm text-gray-700 mb-2">
+                    <PdfIcon className="w-5 h-5 text-red-600" />
+                    <span className="font-medium">PDF Document</span>
+                  </div>
+                  <div className="w-full h-[600px] bg-gray-200 rounded-lg overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between p-3 bg-gray-100 border-b border-gray-300">
+                      <span className="text-sm font-medium text-gray-700">PDF Viewer</span>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 text-xs font-medium underline"
+                      >
+                        Open in new tab
+                      </a>
+                    </div>
+                    <iframe
+                      src={url}
+                      className="w-full flex-1 border-0"
+                      title="PDF Document"
+                    />
+                  </div>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 text-xs break-all underline flex items-start space-x-2"
+                  >
+                    <LinkIcon className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    <span className="break-all">{url}</span>
+                  </a>
+                </div>
+              )
+            }
+            
             const { platform, icon, isEmbeddable } = getPlatformFromUrl(url)
             
             // Show loading state while fetching oEmbed

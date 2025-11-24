@@ -53,6 +53,8 @@ import {
   HiOutlinePaperClip,
   HiOutlineTrendingUp,
   HiOutlineSparkles,
+  HiOutlineDocumentText,
+  HiOutlineTrash,
   // Heroicons - Solid
   HiThumbUp,
   HiThumbDown,
@@ -79,6 +81,7 @@ import {
   FaHeart,
   FaBookmark,
   FaShare,
+  FaFilePdf,
 } from 'react-icons/fa'
 
 // Re-export commonly used icons with consistent naming
@@ -132,6 +135,9 @@ export {
   HiOutlinePaperClip as PaperClipIcon,
   HiOutlineTrendingUp as TrendingUpIcon,
   HiOutlineSparkles as SparklesIcon,
+  HiOutlineDocumentText as DocumentIcon,
+  HiOutlineTrash as TrashIcon,
+  FaFilePdf as PdfIcon,
   
   // UI Elements
   HiOutlineX as XIcon,

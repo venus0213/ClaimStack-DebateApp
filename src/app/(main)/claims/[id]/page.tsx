@@ -21,6 +21,7 @@ import { useFollow } from '@/hooks/useFollow'
 import { useClaimsStore } from '@/store/claimsStore'
 import { useEvidenceStore } from '@/store/evidenceStore'
 import { useRef } from 'react'
+import { MediaDisplay } from '@/components/moderation/MediaDisplay'
 
 export default function ClaimDetailPage() {
   const params = useParams()
@@ -236,169 +237,157 @@ export default function ClaimDetailPage() {
           <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold text-gray-900 mb-6 sm:mb-10 leading-tight">
             {claim?.title || 'Loading...'}
           </p>
-          <div className="space-y-4 text-sm sm:text-base text-gray-600 pb-2">
-            {claim?.description && (
-              <p className="text-gray-700 leading-relaxed">{claim.description}</p>
-            )}
-            <div className="flex flex-wrap gap-4 sm:gap-6">
-              {claim?.category && (
-                <div>
-                  <span className="font-medium text-gray-500">Category: </span>
-                  <span className="text-gray-900">{claim.category.name}</span>
-                </div>
-              )}
-              {claim?.status && (
-                <div>
-                  <span className="font-medium text-gray-500">Status: </span>
-                  <span className={`capitalize ${
-                    claim.status === 'approved' ? 'text-green-600' :
-                    claim.status === 'rejected' ? 'text-red-600' :
-                    claim.status === 'pending' ? 'text-yellow-600' :
-                    'text-gray-600'
-                  }`}>
-                    {claim.status}
-                  </span>
-                </div>
-              )}
-              {claim?.viewCount !== undefined && (
-                <div>
-                  <span className="font-medium text-gray-500">Views: </span>
-                  <span className="text-gray-900">{claim.viewCount}</span>
-                </div>
-              )}
-              {claim?.user && (
-                <div>
-                  <span className="font-medium text-gray-500">Author: </span>
-                  <span className="text-gray-900">
-                    {claim.user.firstName && claim.user.lastName
-                      ? `${claim.user.firstName} ${claim.user.lastName}`
-                      : claim.user.username}
-                  </span>
-                </div>
-              )}
-              {claim?.createdAt && (
-                <div>
-                  <span className="font-medium text-gray-500">Created: </span>
-                  <span className="text-gray-900">
-                    {new Date(claim.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-            </div>
-            {claim?.url && (
-              <div>
-                <span className="font-medium text-gray-500">Source: </span>
-                <a 
-                  href={claim.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline break-all"
-                >
-                  {claim.url}
-                </a>
-              </div>
-            )}
-            {claim?.fileUrl && (
-              <div>
-                <span className="font-medium text-gray-500">File: </span>
-                <a 
-                  href={claim.fileUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline"
-                >
-                  {claim.fileName || 'View File'}
-                </a>
-                {claim.fileSize && (
-                  <span className="text-gray-500 ml-2">
-                    ({(claim.fileSize / 1024).toFixed(2)} KB)
-                  </span>
+          
+          {/* Two Column Layout: Media on Left, Metadata on Right */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 py-6 items-stretch">
+            {/* Left Section: Media Display */}
+            <div className="flex flex-col space-y-1 h-full">
+              <h2 className="text-xl font-semibold text-[#030303] mb-1">Media</h2>
+              <div className="flex-1 flex flex-col">
+                {(claim?.fileUrl || claim?.url) ? (
+                  <div className="flex-1">
+                    <MediaDisplay
+                      fileUrl={claim.fileUrl}
+                      fileName={claim.fileName}
+                      fileSize={claim.fileSize}
+                      fileType={claim.fileType}
+                      url={claim.url}
+                      title={claim.title}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full flex-1 bg-gray-200 rounded-lg flex items-center justify-center min-h-[400px]">
+                    <p className="text-gray-500 text-sm">No media available</p>
+                  </div>
                 )}
               </div>
-            )}
-            
-            {/* Voting, Following, and Score Section */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-gray-200">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-                {/* Score Display */}
-                {claim?.totalScore !== undefined && (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-500">Score: </span>
-                    <span className={`text-lg font-semibold ${
-                      claim.totalScore > 0 ? 'text-green-600' :
-                      claim.totalScore < 0 ? 'text-red-600' :
-                      'text-gray-600'
-                    }`}>
-                      {claim.totalScore > 0 ? '+' : ''}{claim.totalScore}
+            </div>
+
+            {/* Right Section: Detailed Metadata */}
+            <div className="space-y-5 border-l border-gray-200 pl-8 h-full">
+              <h2 className="text-xl font-semibold text-[#030303] mb-5">Description</h2>
+              {claim?.description && (
+                <p className="text-sm sm:text-base text-gray-700 leading-relaxed mb-6 sm:mb-8">
+                  {claim.description}
+                </p>
+              )}
+              {claim?.forSummary && (
+                <div>
+                  <h2 className="text-xl font-semibold text-[#030303] mb-5">AI Summary</h2>
+                  <p className="text-sm text-[#030303]">{claim.forSummary}</p>
+                </div>
+              )}              
+              <h2 className="text-xl font-semibold text-[#030303] mb-5 pt-10">Details</h2>
+              
+              <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-2 gap-4">
+                  {claim?.category && (
+                    <div>
+                      <span className="text-gray-600">Category:</span>
+                      <span className="ml-2 font-medium text-[#030303]">{claim.category.name}</span>
+                    </div>
+                  )}
+                  
+                  {claim?.status && (
+                    <div>
+                      <span className="text-gray-600">Status:</span>
+                      <span className={`ml-2 font-medium capitalize ${
+                        claim.status === 'approved' ? 'text-green-600' :
+                        claim.status === 'rejected' ? 'text-red-600' :
+                        claim.status === 'pending' ? 'text-yellow-600' :
+                        'text-gray-600'
+                      }`}>
+                        {claim.status}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {claim?.viewCount !== undefined && (
+                    <div>
+                      <span className="text-gray-600">Views:</span>
+                      <span className="ml-2 font-medium text-[#030303]">{claim.viewCount}</span>
+                    </div>
+                  )}
+                  
+                  {claim?.user && (
+                    <div>
+                      <span className="text-gray-600">Author:</span>
+                      <span className="ml-2 font-medium text-[#030303]">
+                        {claim.user.firstName && claim.user.lastName
+                          ? `${claim.user.firstName} ${claim.user.lastName}`
+                          : claim.user.username}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {claim?.createdAt && (
+                    <div>
+                      <span className="text-gray-600">Created:</span>
+                      <span className="ml-2 font-medium text-[#030303]">
+                        {new Date(claim.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {claim?.totalScore !== undefined && (
+                    <div>
+                      <span className="text-gray-600">Score:</span>
+                      <span className={`ml-2 text-lg font-semibold ${
+                        claim.totalScore > 0 ? 'text-green-600' :
+                        claim.totalScore < 0 ? 'text-red-600' :
+                        'text-gray-600'
+                      }`}>
+                        {claim.totalScore > 0 ? '+' : ''}{claim.totalScore}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {claim?.followCount !== undefined && (
+                    <div>
+                      <span className="text-gray-600">Followers:</span>
+                      <span className="ml-2 font-medium text-[#030303]">{claim.followCount || 0}</span>
+                    </div>
+                  )}
+                </div>
+
+                {(claim?.upvotes !== undefined || claim?.downvotes !== undefined) && (
+                  <div>
+                    <span className="text-gray-600">Total Votes:</span>
+                    <span className="ml-2">
+                      <span className="font-medium text-blue-600">{claim.upvotes || 0} Upvotes</span>
+                      <span className="mx-2 text-gray-400">/</span>
+                      <span className="font-medium text-red-600">{claim.downvotes || 0} Downvotes</span>
                     </span>
                   </div>
                 )}
-                
-                {/* Vote Counts */}
-                {(claim?.upvotes !== undefined || claim?.downvotes !== undefined) && (
-                  <div className="flex items-center gap-4">
-                    {claim.upvotes !== undefined && (
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium text-gray-500">Upvotes: </span>
-                        <span className="text-gray-900 font-medium">{claim.upvotes || 0}</span>
-                      </div>
-                    )}
-                    {claim.downvotes !== undefined && (
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium text-gray-500">Downvotes: </span>
-                        <span className="text-gray-900 font-medium">{claim.downvotes || 0}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Follow Count */}
-                {claim?.followCount !== undefined && (
-                  <div className="flex items-center gap-1">
-                    <span className="font-medium text-gray-500">Followers: </span>
-                    <span className="text-gray-900 font-medium">{claim.followCount || 0}</span>
-                  </div>
-                )}
               </div>
-              
-              {/* Action Buttons */}
-              {/* <div className="flex items-center gap-3 sm:gap-4">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleClaimFollow}
-                  disabled={claimFollow.isFollowingAction}
-                  className="bg-black text-white hover:bg-gray-800 rounded-full text-xs sm:text-sm px-4 sm:px-5 py-2"
-                >
-                  {claimFollow.isFollowing ? 'Following' : 'Follow'}
-                </Button>
-                
-                <VoteButtons
-                  upvotes={claimVote.upvotes}
-                  downvotes={claimVote.downvotes}
-                  userVote={claimVote.userVote}
-                  onVote={handleClaimVote}
-                  disabled={claimVote.isVoting}
-                />
-              </div> */}
-              <button 
-                className="text-black hover:text-gray-600 p-1"
-                onClick={() => setIsSummariesExpanded(!isSummariesExpanded)}
-                aria-label="Toggle summaries"
-              >
-                {isSummariesExpanded ? (
-                  <ChevronUpIcon className="w-5 h-5 sm:w-7 sm:h-7" />
-                ) : (
-                  <ChevronDownIcon className="w-5 h-5 sm:w-7 sm:h-7" />
-                )}
-              </button>
             </div>
           </div>
+          {/* Toggle Summaries Button */}
+          <div className="flex items-center justify-end pt-6 mt-6 border-t border-gray-200">
+            <button 
+              className="text-black hover:text-gray-600 p-1 flex items-center gap-2"
+              onClick={() => setIsSummariesExpanded(!isSummariesExpanded)}
+              aria-label="Toggle summaries"
+            >
+              <span className="text-sm font-medium">
+                {isSummariesExpanded ? 'Hide' : 'Show'} Summaries
+              </span>
+              {isSummariesExpanded ? (
+                <ChevronUpIcon className="w-5 h-5" />
+              ) : (
+                <ChevronDownIcon className="w-5 h-5" />
+              )}
+            </button>
+          </div>    
+          
           {/* Summaries */}
           {isSummariesExpanded && claim && (
-            <ClaimSummary 
-              evidence={evidence}
-            />
+            <div className="pt-6 mt-6 border-t border-gray-200">
+              <ClaimSummary 
+                evidence={evidence}
+              />
+            </div>
           )}
         </div>
 

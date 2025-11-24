@@ -4,7 +4,10 @@ import { requireAuth, optionalAuth } from '@/lib/auth/middleware'
 import { Claim, ClaimStatus } from '@/lib/db/models'
 import { ClaimFollow, ClaimVote, VoteType } from '@/lib/db/models'
 import { ModerationLog, ModerationAction } from '@/lib/db/models'
+import { Evidence } from '@/lib/db/models'
+import { Perspective } from '@/lib/db/models'
 import { updateClaimScore } from '@/lib/utils/claimScore'
+import { deleteFile } from '@/lib/storage/upload'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -351,6 +354,139 @@ export async function PATCH(
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to update claim status'
+    
+    return NextResponse.json(
+      { 
+        success: false,
+        error: errorMessage 
+      },
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    )
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Check authentication
+    const authResult = await requireAuth(request)
+    if (authResult.error) {
+      return authResult.error
+    }
+
+    const user = authResult.user
+    const claimId = params.id
+
+    // Ensure database connection
+    await connectDB()
+
+    // Validate claim ID format
+    if (!mongoose.Types.ObjectId.isValid(claimId)) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Invalid claim ID format' 
+        },
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Find the claim
+    const claim = await Claim.findById(new mongoose.Types.ObjectId(claimId))
+    if (!claim) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Claim not found' 
+        },
+        { 
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Check if user owns the claim
+    const claimUserId = claim.userId instanceof mongoose.Types.ObjectId
+      ? claim.userId.toString()
+      : (claim.userId as any)?._id?.toString() || (claim.userId as any).toString()
+    
+    if (claimUserId !== user.userId) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'You can only delete your own claims' 
+        },
+        { 
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Delete associated file if exists
+    if (claim.fileUrl) {
+      try {
+        await deleteFile(claim.fileUrl)
+      } catch (error) {
+        console.error('Error deleting claim file:', error)
+        // Continue with deletion even if file deletion fails
+      }
+    }
+
+    // Delete related evidence files
+    const evidenceList = await Evidence.find({ claimId: claim._id })
+    for (const evidence of evidenceList) {
+      if (evidence.fileUrl) {
+        try {
+          await deleteFile(evidence.fileUrl)
+        } catch (error) {
+          console.error('Error deleting evidence file:', error)
+        }
+      }
+    }
+
+    // Delete related perspective files
+    const perspectiveList = await Perspective.find({ claimId: claim._id })
+    for (const perspective of perspectiveList) {
+      if (perspective.fileUrl) {
+        try {
+          await deleteFile(perspective.fileUrl)
+        } catch (error) {
+          console.error('Error deleting perspective file:', error)
+        }
+      }
+    }
+
+    // Delete the claim (this will cascade delete related data if schema is set up correctly)
+    // But we'll also explicitly delete to be safe
+    await ClaimVote.deleteMany({ claimId: claim._id })
+    await ClaimFollow.deleteMany({ claimId: claim._id })
+    await Evidence.deleteMany({ claimId: claim._id })
+    await Perspective.deleteMany({ claimId: claim._id })
+    await claim.deleteOne()
+
+    return NextResponse.json({
+      success: true,
+      message: 'Claim deleted successfully',
+    }, { 
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete claim'
     
     return NextResponse.json(
       { 

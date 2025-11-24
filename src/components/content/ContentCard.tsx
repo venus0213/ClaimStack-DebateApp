@@ -7,8 +7,9 @@ import type { Evidence as EvidenceType, Perspective as PerspectiveType } from '@
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { VoteButtons } from '@/components/voting/VoteButtons'
-import { ShareIcon, UserIcon } from '@/components/ui/Icons'
+import { ShareIcon, UserIcon, TrashIcon } from '@/components/ui/Icons'
 import { ProtectedLink } from '@/components/ui/ProtectedLink'
+import { Modal } from '@/components/ui/Modal'
 import { useVote } from '@/hooks/useVote'
 import { useFollow } from '@/hooks/useFollow'
 
@@ -20,6 +21,8 @@ interface ContentCardProps {
   isFollowing?: boolean
   href?: string
   claimId?: string // For evidence/perspective to update claim score
+  showDelete?: boolean // Show delete button (for profile page)
+  onDelete?: (itemId: string, itemType: 'claim' | 'evidence' | 'perspective') => void // Delete callback
 }
 
 // Type guard to check if item is Evidence
@@ -40,6 +43,8 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   isFollowing: propIsFollowing,
   href,
   claimId,
+  showDelete = false,
+  onDelete,
 }) => {
   const isEvidenceItem = isEvidence(item)
   const isPerspectiveItem = isPerspective(item)
@@ -103,6 +108,10 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
   const [showReadMore, setShowReadMore] = useState(false)
   const descriptionRef = useRef<HTMLParagraphElement>(null)
+  
+  // State for delete confirmation modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Check if description exceeds 2 lines
   useEffect(() => {
@@ -132,8 +141,14 @@ export const ContentCard: React.FC<ContentCardProps> = ({
     : ''
 
   // For claims, use the provided href or default to /claims/{id}
-  // For evidence, don't make title clickable unless href is provided
-  const titleHref = href || (isEvidenceItem ? undefined : `/claims/${itemId}`)
+  // For evidence/perspectives, link to their claim detail page
+  const titleHref = href || (
+    isEvidenceItem || isPerspectiveItem
+      ? effectiveClaimId 
+        ? `/claims/${effectiveClaimId}`
+        : undefined
+      : `/claims/${itemId}`
+  )
 
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
     try {
@@ -166,6 +181,19 @@ export const ContentCard: React.FC<ContentCardProps> = ({
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${cardTypeColor}`}>
             {cardType}
           </span>
+          {showDelete && onDelete && (
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setShowDeleteModal(true)
+              }}
+              className="text-red-500 hover:text-red-700 transition-colors p-1"
+              title="Delete post"
+            >
+              <TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+          )}
           {/* <button className="text-gray-400 hover:text-gray-600 transition-colors p-1">  
             <ShareIcon className="w-3 h-3 sm:w-4 sm:h-4" />
           </button> */}
@@ -251,6 +279,54 @@ export const ContentCard: React.FC<ContentCardProps> = ({
           />
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDelete && onDelete && (
+        <Modal
+          isOpen={showDeleteModal}
+          onClose={isDeleting ? () => {} : () => setShowDeleteModal(false)}
+          title="Delete Post"
+          size="sm"
+          showCloseButton={!isDeleting}
+          footer={
+            <div className="flex items-center justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="px-4 py-2"
+              >
+                No
+              </Button>
+              <Button
+                variant="danger"
+                onClick={async () => {
+                  setIsDeleting(true)
+                  try {
+                    await onDelete(itemId, itemType)
+                    setShowDeleteModal(false)
+                  } catch (error) {
+                    // Error is handled in onDelete callback
+                    console.error('Delete error:', error)
+                  } finally {
+                    setIsDeleting(false)
+                  }
+                }}
+                disabled={isDeleting}
+                className="px-4 py-2"
+              >
+                {isDeleting ? 'Deleting...' : 'Yes'}
+              </Button>
+            </div>
+          }
+        >
+          <div className="py-4">
+            <p className="text-gray-700">
+              Are you sure you want to delete this post? This action cannot be undone.
+            </p>
+          </div>
+        </Modal>
+      )}
     </Card>
   )
 }

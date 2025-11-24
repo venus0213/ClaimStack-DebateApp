@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/db/mongoose'
 import { requireAuth } from '@/lib/auth/middleware'
 import { Perspective, PerspectiveStatus } from '@/lib/db/models'
+import { PerspectiveVote } from '@/lib/db/models'
+import { PerspectiveFollow } from '@/lib/db/models'
 import { Claim } from '@/lib/db/models'
 import { updateClaimScore } from '@/lib/utils/claimScore'
+import { deleteFile } from '@/lib/storage/upload'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -184,6 +187,123 @@ export async function PATCH(
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to update perspective status'
+    
+    return NextResponse.json(
+      { 
+        success: false,
+        error: errorMessage 
+      },
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    )
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Check authentication
+    const authResult = await requireAuth(request)
+    if (authResult.error) {
+      return authResult.error
+    }
+
+    const user = authResult.user
+    const perspectiveId = params.id
+
+    // Ensure database connection
+    await connectDB()
+
+    // Validate perspective ID format
+    if (!mongoose.Types.ObjectId.isValid(perspectiveId)) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Invalid perspective ID format' 
+        },
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Find the perspective
+    const perspective = await Perspective.findById(new mongoose.Types.ObjectId(perspectiveId))
+    if (!perspective) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Perspective not found' 
+        },
+        { 
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Check if user owns the perspective
+    const perspectiveUserId = perspective.userId instanceof mongoose.Types.ObjectId
+      ? perspective.userId.toString()
+      : (perspective.userId as any)?._id?.toString() || (perspective.userId as any).toString()
+    
+    if (perspectiveUserId !== user.userId) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'You can only delete your own perspectives' 
+        },
+        { 
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    const claimId = perspective.claimId
+
+    // Delete associated file if exists
+    if (perspective.fileUrl) {
+      try {
+        await deleteFile(perspective.fileUrl)
+      } catch (error) {
+        console.error('Error deleting perspective file:', error)
+        // Continue with deletion even if file deletion fails
+      }
+    }
+
+    // Delete related data
+    await PerspectiveVote.deleteMany({ perspectiveId: perspective._id })
+    await PerspectiveFollow.deleteMany({ perspectiveId: perspective._id })
+    await perspective.deleteOne()
+
+    // Update claim score after deleting perspective
+    if (claimId) {
+      try {
+        await updateClaimScore(claimId)
+      } catch (error) {
+        console.error('Error updating claim score after perspective deletion:', error)
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Perspective deleted successfully',
+    }, { 
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete perspective'
     
     return NextResponse.json(
       { 
