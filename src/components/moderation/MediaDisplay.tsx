@@ -197,7 +197,6 @@ export const MediaDisplay: React.FC<MediaDisplayProps> = ({
     setShowWebsiteFallback(false)
   }, [fileUrl, url])
 
-  // Monitor PDF iframe for potential load issues (for external URLs that block embedding)
   useEffect(() => {
     if (!url || !isPdfUrl(url)) return
     
