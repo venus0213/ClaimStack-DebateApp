@@ -63,7 +63,6 @@ const AccountSchema = new Schema<IAccount>(
   }
 )
 
-// Compound unique index
 AccountSchema.index({ provider: 1, providerAccountId: 1 }, { unique: true })
 
 const Account: Model<IAccount> = mongoose.models.Account || mongoose.model<IAccount>('Account', AccountSchema)

@@ -9,13 +9,11 @@ interface ClaimSummaryProps {
 }
 
 export const ClaimSummary: React.FC<ClaimSummaryProps> = ({ evidence = [] }) => {
-  // Find evidence with highest upvotes for each position that has aiSummary
   const { forSummary, againstSummary } = useMemo(() => {
     if (!evidence || evidence.length === 0) {
       return { forSummary: '', againstSummary: '' }
     }
     
-    // Filter evidence by position and those that have aiSummary (non-empty)
     const forEvidence = evidence
       .filter((e) => e.position === 'for' && e.aiSummary && e.aiSummary.trim().length > 0)
       .sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0))

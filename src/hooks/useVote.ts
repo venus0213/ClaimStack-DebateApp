@@ -12,7 +12,7 @@ interface UseVoteOptions {
   currentUpvotes?: number
   currentDownvotes?: number
   currentUserVote?: 'upvote' | 'downvote' | null
-  claimId?: string // Required for evidence/perspective to update claim score
+  claimId?: string
 }
 
 interface UseVoteReturn {
@@ -39,7 +39,6 @@ export function useVote({
   const { updateClaim } = useClaimsStore()
   const { updateEvidence, updatePerspective } = useEvidenceStore()
 
-  // Determine API endpoint
   const getEndpoint = useCallback(() => {
     switch (itemType) {
       case 'claim':
@@ -59,14 +58,12 @@ export function useVote({
 
       setIsVoting(true)
 
-      // Optimistic update
       const previousVote = userVote
       let newUpvotes = upvotes
       let newDownvotes = downvotes
       let newUserVote: 'upvote' | 'downvote' | null = voteType
 
       if (previousVote === voteType) {
-        // Toggle off
         newUserVote = null
         if (voteType === 'upvote') {
           newUpvotes = Math.max(0, upvotes - 1)
@@ -74,7 +71,6 @@ export function useVote({
           newDownvotes = Math.max(0, downvotes - 1)
         }
       } else if (previousVote) {
-        // Switch vote type
         if (previousVote === 'upvote') {
           newUpvotes = Math.max(0, upvotes - 1)
         } else {
@@ -86,7 +82,6 @@ export function useVote({
           newDownvotes += 1
         }
       } else {
-        // New vote
         if (voteType === 'upvote') {
           newUpvotes += 1
         } else {
@@ -115,7 +110,6 @@ export function useVote({
 
         const data = await response.json()
 
-        // Update global state based on item type
         if (itemType === 'claim') {
           if (data.success && data.claim) {
             updateClaim(itemId, {
@@ -140,13 +134,11 @@ export function useVote({
             setDownvotes(data.evidence.downvotes)
             setUserVote(data.userVote)
 
-            // Update claim score if claimId is provided
             if (claimId && data.claim) {
               updateClaim(claimId, {
                 totalScore: data.claim.totalScore,
               })
             } else if (claimId) {
-              // Refetch claim to get updated score
               const claimResponse = await fetch(`/api/claims/${claimId}`, {
                 credentials: 'include',
               })
@@ -172,13 +164,11 @@ export function useVote({
             setDownvotes(data.perspective.downvotes)
             setUserVote(data.userVote)
 
-            // Update claim score if claimId is provided
             if (claimId && data.claim) {
               updateClaim(claimId, {
                 totalScore: data.claim.totalScore,
               })
             } else if (claimId) {
-              // Refetch claim to get updated score
               const claimResponse = await fetch(`/api/claims/${claimId}`, {
                 credentials: 'include',
               })
@@ -194,7 +184,6 @@ export function useVote({
           }
         }
       } catch (error) {
-        // Revert optimistic update on error
         setUpvotes(upvotes)
         setDownvotes(downvotes)
         setUserVote(previousVote)
