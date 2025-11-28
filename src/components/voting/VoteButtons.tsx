@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils/cn'
 import { ThumbUpIcon, ThumbDownIcon } from '@/components/ui/Icons'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
+import { User } from '@/lib/types'
 
 export interface VoteButtonsProps {
   upvotes: number
@@ -11,6 +12,16 @@ export interface VoteButtonsProps {
   userVote?: 'upvote' | 'downvote' | null
   onVote?: (voteType: 'upvote' | 'downvote') => Promise<void>
   disabled?: boolean
+  itemId?: string
+  itemType?: 'claim' | 'evidence' | 'perspective'
+}
+
+interface Voter {
+  id: string
+  userId: string
+  voteType: 'upvote' | 'downvote'
+  user: User
+  createdAt: Date
 }
 
 export const VoteButtons: React.FC<VoteButtonsProps> = ({
@@ -19,12 +30,25 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
   userVote: initialUserVote,
   onVote,
   disabled,
+  itemId,
+  itemType,
 }) => {
   const { requireAuth } = useRequireAuth()
   const [upvotes, setUpvotes] = useState(initialUpvotes)
   const [downvotes, setDownvotes] = useState(initialDownvotes)
   const [userVote, setUserVote] = useState<'upvote' | 'downvote' | null>(initialUserVote || null)
   const [isVoting, setIsVoting] = useState(false)
+  const [showUpvoteDropdown, setShowUpvoteDropdown] = useState(false)
+  const [showDownvoteDropdown, setShowDownvoteDropdown] = useState(false)
+  const [upvoters, setUpvoters] = useState<Voter[]>([])
+  const [downvoters, setDownvoters] = useState<Voter[]>([])
+  const [loadingVoters, setLoadingVoters] = useState(false)
+  const [upvoteDropdownDirection, setUpvoteDropdownDirection] = useState<'up' | 'down'>('down')
+  const [downvoteDropdownDirection, setDownvoteDropdownDirection] = useState<'up' | 'down'>('down')
+  const upvoteDropdownRef = useRef<HTMLDivElement>(null)
+  const downvoteDropdownRef = useRef<HTMLDivElement>(null)
+  const upvoteButtonRef = useRef<HTMLButtonElement>(null)
+  const downvoteButtonRef = useRef<HTMLButtonElement>(null)
 
   // Update state when props change
   useEffect(() => {
@@ -32,6 +56,95 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
     setDownvotes(initialDownvotes)
     setUserVote(initialUserVote || null)
   }, [initialUpvotes, initialDownvotes, initialUserVote])
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (upvoteDropdownRef.current && !upvoteDropdownRef.current.contains(event.target as Node)) {
+        setShowUpvoteDropdown(false)
+      }
+      if (downvoteDropdownRef.current && !downvoteDropdownRef.current.contains(event.target as Node)) {
+        setShowDownvoteDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Fetch voters when dropdown opens
+  const fetchVoters = async (voteType: 'upvote' | 'downvote') => {
+    if (!itemId || !itemType || loadingVoters) return
+
+    setLoadingVoters(true)
+    try {
+      // Map itemType to correct API path
+      const typePath = itemType === 'evidence' ? 'evidence' : `${itemType}s`
+      const endpoint = `/api/${typePath}/${itemId}/voters?voteType=${voteType}`
+      const response = await fetch(endpoint, {
+        credentials: 'include',
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          if (voteType === 'upvote') {
+            setUpvoters(data.voters || [])
+          } else {
+            setDownvoters(data.voters || [])
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching voters:', error)
+    } finally {
+      setLoadingVoters(false)
+    }
+  }
+
+  // Calculate dropdown direction based on available space
+  const calculateDropdownDirection = (buttonRef: React.RefObject<HTMLButtonElement>): 'up' | 'down' => {
+    if (!buttonRef.current) return 'down'
+    
+    const buttonRect = buttonRef.current.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const spaceBelow = viewportHeight - buttonRect.bottom
+    const spaceAbove = buttonRect.top
+    const dropdownHeight = 300 // Approximate dropdown height
+    
+    // If there's not enough space below but enough space above, show upward
+    if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+      return 'up'
+    }
+    // Otherwise show downward
+    return 'down'
+  }
+
+  const handleDropdownToggle = (voteType: 'upvote' | 'downvote') => {
+    if (voteType === 'upvote') {
+      const newState = !showUpvoteDropdown
+      setShowUpvoteDropdown(newState)
+      if (newState) {
+        const direction = calculateDropdownDirection(upvoteButtonRef)
+        setUpvoteDropdownDirection(direction)
+        if (upvoters.length === 0) {
+          fetchVoters('upvote')
+        }
+      }
+      setShowDownvoteDropdown(false)
+    } else {
+      const newState = !showDownvoteDropdown
+      setShowDownvoteDropdown(newState)
+      if (newState) {
+        const direction = calculateDropdownDirection(downvoteButtonRef)
+        setDownvoteDropdownDirection(direction)
+        if (downvoters.length === 0) {
+          fetchVoters('downvote')
+        }
+      }
+      setShowUpvoteDropdown(false)
+    }
+  }
 
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
     if (disabled || isVoting) return
@@ -85,6 +198,15 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
       try {
         // Then update backend
         await onVote?.(voteType)
+        
+        // Refresh voters list if dropdown is open
+        if (voteType === 'upvote' && showUpvoteDropdown) {
+          setUpvoters([]) // Clear to force refresh
+          fetchVoters('upvote')
+        } else if (voteType === 'downvote' && showDownvoteDropdown) {
+          setDownvoters([]) // Clear to force refresh
+          fetchVoters('downvote')
+        }
       } catch (error) {
         // Revert on error
         setUpvotes(previousUpvotes)
@@ -97,36 +219,163 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
     })
   }
 
+  const renderVoterList = (voters: Voter[], voteType: 'upvote' | 'downvote') => {
+    if (loadingVoters) {
+      return (
+        <div className="px-3 py-2 text-xs text-gray-500 text-center">
+          Loading...
+        </div>
+      )
+    }
+
+    if (voters.length === 0) {
+      return (
+        <div className="px-3 py-2 text-xs text-gray-500 text-center">
+          No {voteType === 'upvote' ? 'upvoters' : 'downvoters'} yet
+        </div>
+      )
+    }
+
+    return (
+      <div className="max-h-60 overflow-y-auto">
+        {voters.map((voter) => (
+          <div
+            key={voter.id}
+            className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors"
+          >
+            {voter.user.avatarUrl ? (
+              <img
+                src={voter.user.avatarUrl}
+                alt={voter.user.username}
+                className="w-6 h-6 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center">
+                <span className="text-xs text-gray-600">
+                  {voter.user.username?.[0]?.toUpperCase() || 'U'}
+                </span>
+              </div>
+            )}
+            <span className="text-xs text-gray-700 font-medium">
+              @{voter.user.username}
+            </span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center gap-1 sm:gap-2">
-      <button
-        onClick={() => handleVote('upvote')}
-        disabled={disabled}
-        className={cn(
-          'flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border transition-colors',
-          userVote === 'upvote'
-            ? 'border-blue-600 text-blue-600'
-            : 'border-blue-200 text-blue-600 hover:border-blue-400',
-          disabled && 'opacity-50 cursor-not-allowed'
+      {/* Upvote Button with Dropdown */}
+      <div ref={upvoteDropdownRef} className="relative">
+        <button
+          ref={upvoteButtonRef}
+          onClick={(e) => {
+            e.stopPropagation()
+            handleDropdownToggle('upvote')
+          }}
+          disabled={disabled}
+          className={cn(
+            'flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border transition-colors',
+            userVote === 'upvote'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-blue-200 text-blue-600 hover:border-blue-400',
+            disabled && 'opacity-50 cursor-not-allowed'
+          )}
+        >
+          <span className="text-xs sm:text-sm font-medium">+{upvotes}</span>
+          <ThumbUpIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+        </button>
+
+        {showUpvoteDropdown && (
+          <div className={cn(
+            'absolute right-0 w-56 bg-white border border-gray-200 rounded-3xl shadow-lg z-50',
+            upvoteDropdownDirection === 'down' ? 'top-full mt-2' : 'bottom-full mb-2'
+          )}>
+            {/* Vote Button at Top */}
+            <div className="border-b border-gray-200 p-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleVote('upvote')
+                  setShowUpvoteDropdown(false)
+                }}
+                disabled={disabled || isVoting}
+                className={cn(
+                  'w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-full border transition-colors',
+                  userVote === 'upvote'
+                    ? 'border-blue-600 text-blue-600 bg-blue-50'
+                    : 'border-blue-200 text-blue-600 hover:border-blue-400',
+                  (disabled || isVoting) && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                <ThumbUpIcon className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {userVote === 'upvote' ? 'Remove Upvote' : 'Upvote'}
+                </span>
+              </button>
+            </div>
+            {/* Voters List */}
+            {renderVoterList(upvoters, 'upvote')}
+          </div>
         )}
-      >
-        <span className="text-xs sm:text-sm font-medium">+{upvotes}</span>
-        <ThumbUpIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-      </button>
-      <button
-        onClick={() => handleVote('downvote')}
-        disabled={disabled}
-        className={cn(
-          'flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border transition-colors',
-          userVote === 'downvote'
-            ? 'border-red-600 text-red-600'
-            : 'border-red-200 text-red-600 hover:border-red-400',
-          disabled && 'opacity-50 cursor-not-allowed'
+      </div>
+
+      {/* Downvote Button with Dropdown */}
+      <div ref={downvoteDropdownRef} className="relative">
+        <button
+          ref={downvoteButtonRef}
+          onClick={(e) => {
+            e.stopPropagation()
+            handleDropdownToggle('downvote')
+          }}
+          disabled={disabled}
+          className={cn(
+            'flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border transition-colors',
+            userVote === 'downvote'
+              ? 'border-red-600 text-red-600'
+              : 'border-red-200 text-red-600 hover:border-red-400',
+            disabled && 'opacity-50 cursor-not-allowed'
+          )}
+        >
+          <span className="text-xs sm:text-sm font-medium">+{downvotes}</span>
+          <ThumbDownIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+        </button>
+
+        {showDownvoteDropdown && (
+          <div className={cn(
+            'absolute right-0 w-56 bg-white border border-gray-200 rounded-3xl shadow-lg z-50',
+            downvoteDropdownDirection === 'down' ? 'top-full mt-2' : 'bottom-full mb-2'
+          )}>
+            {/* Vote Button at Top */}
+            <div className="border-b border-gray-200 p-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleVote('downvote')
+                  setShowDownvoteDropdown(false)
+                }}
+                disabled={disabled || isVoting}
+                className={cn(
+                  'w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-full border transition-colors',
+                  userVote === 'downvote'
+                    ? 'border-red-600 text-red-600 bg-red-50'
+                    : 'border-red-200 text-red-600 hover:border-red-400',
+                  (disabled || isVoting) && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                <ThumbDownIcon className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {userVote === 'downvote' ? 'Remove Downvote' : 'Downvote'}
+                </span>
+              </button>
+            </div>
+            {/* Voters List */}
+            {renderVoterList(downvoters, 'downvote')}
+          </div>
         )}
-      >
-        <span className="text-xs sm:text-sm font-medium">+{downvotes}</span>
-        <ThumbDownIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-      </button>
+      </div>
     </div>
   )
 }

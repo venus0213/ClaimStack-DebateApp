@@ -7,6 +7,8 @@ import { SearchIcon } from '@/components/ui/Icons'
 import { FilterButton } from '@/components/ui/FilterButton'
 import { FilterValues } from '@/components/ui/FilterModal'
 import { useClaimsStore } from '@/store/claimsStore'
+import { TopUsers } from '@/components/users/TopUsers'
+import { PopularClaimsCarousel } from '@/components/claims/PopularClaimsCarousel'
 
 const sortOptions = [
   { id: 'newest', label: 'Newest' },
@@ -33,8 +35,8 @@ export default function BrowsePage() {
     console.log('Filters applied:', newFilters)
   }
 
-  // Filter claims based on search query
   const filteredClaims = claims.filter((claim) => {
+    if (claim.status !== 'approved') return false
     if (!searchQuery) return true
     const query = searchQuery.toLowerCase()
     return (
@@ -63,6 +65,11 @@ export default function BrowsePage() {
               />
             </div>
           </div>
+        </div>
+        
+        <div className='flex flex-col sm:flex-row gap-4 sm:gap-16'>
+          <TopUsers />
+          <PopularClaimsCarousel />
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">

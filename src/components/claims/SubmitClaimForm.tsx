@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Dropdown, DropdownOption } from '@/components/ui/Dropdown'
-import { ForAgainstToggle } from '@/components/claims/ForAgainstToggle'
+// import { ForAgainstToggle } from '@/components/claims/ForAgainstToggle'
 import { Button } from '@/components/ui/Button'
 import { SuccessModal } from '@/components/ui/SuccessModal'
 import { cn } from '@/lib/utils/cn'
@@ -303,13 +303,13 @@ export const SubmitClaimForm: React.FC<SubmitClaimFormProps> = ({
             showCharCount
           />
 
-          <div>
+          {/* <div>
             <ForAgainstToggle
               position={formData.position}
               onChange={(pos) => setFormData({ ...formData, position: pos })}
               fullWidth
             />
-          </div>
+          </div> */}
         </div>
       </div>
 
