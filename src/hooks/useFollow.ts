@@ -35,7 +35,6 @@ export function useFollow({
   const { updateClaim } = useClaimsStore()
   const { updateEvidence, updatePerspective } = useEvidenceStore()
 
-  // Determine API endpoint
   const getEndpoint = useCallback(() => {
     switch (itemType) {
       case 'claim':
@@ -55,7 +54,6 @@ export function useFollow({
     await requireAuth(async () => {
       setIsFollowingAction(true)
 
-      // Optimistic update
       const previousFollowing = isFollowing
       const previousFollowCount = followCount
       const newFollowing = !previousFollowing
@@ -80,7 +78,6 @@ export function useFollow({
 
         const data = await response.json()
 
-        // Update global state based on item type
         if (itemType === 'claim') {
           if (data.success && data.claim) {
             updateClaim(itemId, {
@@ -109,7 +106,6 @@ export function useFollow({
           }
         }
       } catch (error) {
-        // Revert optimistic update on error
         setIsFollowing(previousFollowing)
         setFollowCount(previousFollowCount)
         console.error('Error following:', error)

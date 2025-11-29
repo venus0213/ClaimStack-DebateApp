@@ -3,12 +3,9 @@ import connectDB from '@/lib/db/mongoose'
 import { requireAuth, optionalAuth } from '@/lib/auth/middleware'
 import { Claim, Category, ClaimStatus } from '@/lib/db/models'
 import { ClaimVote, VoteType } from '@/lib/db/models'
-import { Evidence, EvidenceType, Position, EvidenceStatus } from '@/lib/db/models'
 import { Flag } from '@/lib/db/models'
 import { uploadFile } from '@/lib/storage/upload'
-import { fetchOEmbed } from '@/lib/oembed/client'
-import { updateClaimScore } from '@/lib/utils/claimScore'
-import { generateClaimSummary, generateEvidenceSummary } from '@/lib/ai/summarize'
+import { generateClaimSummary } from '@/lib/ai/summarize'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -102,6 +99,14 @@ export async function GET(request: NextRequest) {
       sort = { viewCount: -1, createdAt: -1 }
     } else if (sortBy === 'newest') {
       sort = { createdAt: -1 }
+    } else if (sortBy === 'most-voted') {
+      sort = { upvotes: -1, createdAt: -1 }
+    } else if (sortBy === 'most-viewed') {
+      sort = { viewCount: -1 }
+    } else if (sortBy === 'most-followed') {
+      sort = { followCount: -1, createdAt: -1 }
+    } else if (sortBy === 'oldest') {
+      sort = { createdAt: 1 }
     }
 
     // Fetch claims
@@ -292,143 +297,6 @@ export async function POST(request: NextRequest) {
       fileSize,
       fileType,
     })
-
-    // Handle initial evidence if provided
-    if (evidenceType && (evidenceUrl || body.fileUrl)) {
-      let evidenceData: any = {
-        claimId: claim._id,
-        userId: new mongoose.Types.ObjectId(user.userId),
-        position: position ? (position.toUpperCase() as Position) : Position.FOR,
-        description: evidenceDescription,
-        status: EvidenceStatus.APPROVED, // Auto-approve evidence
-        upvotes: 0,
-        downvotes: 0,
-        score: 0,
-      }
-
-      // Handle file-based evidence
-      if (evidenceType === 'file' && body.fileUrl) {
-        evidenceData.type = EvidenceType.FILE
-        evidenceData.fileUrl = body.fileUrl
-        evidenceData.fileName = body.fileName
-        evidenceData.fileSize = body.fileSize
-        evidenceData.fileType = body.fileType
-      } else if (evidenceType !== 'file' && evidenceUrl) {
-        // Handle URL-based evidence
-        let evidenceTypeEnum: EvidenceType
-        let metadata: Record<string, any> | undefined
-
-        // Determine evidence type from URL
-        if (evidenceUrl.includes('youtube.com') || evidenceUrl.includes('youtu.be')) {
-          evidenceTypeEnum = EvidenceType.YOUTUBE
-          try {
-            const oembedData = await fetchOEmbed(evidenceUrl)
-            metadata = {
-              title: oembedData.title,
-              thumbnail: oembedData.thumbnail,
-              provider: oembedData.provider,
-            }
-            evidenceData.title = oembedData.title || undefined
-          } catch (error) {
-          }
-        } else if (evidenceUrl.includes('twitter.com') || evidenceUrl.includes('x.com')) {
-          evidenceTypeEnum = EvidenceType.TWEET
-          try {
-            const oembedData = await fetchOEmbed(evidenceUrl)
-            metadata = {
-              title: oembedData.title,
-              provider: oembedData.provider,
-            }
-            evidenceData.title = oembedData.title || undefined
-          } catch (error) {
-            console.error('Failed to fetch oEmbed data:', error)
-          }
-        } else if (evidenceUrl.includes('tiktok.com')) {
-          evidenceTypeEnum = EvidenceType.TIKTOK
-          try {
-            const oembedData = await fetchOEmbed(evidenceUrl)
-            metadata = {
-              title: oembedData.title,
-              provider: oembedData.provider,
-            }
-            evidenceData.title = oembedData.title || undefined
-          } catch (error) {
-            console.error('Failed to fetch oEmbed data:', error)
-          }
-        } else if (evidenceUrl.includes('instagram.com')) {
-          evidenceTypeEnum = EvidenceType.INSTAGRAM
-          try {
-            const oembedData = await fetchOEmbed(evidenceUrl)
-            metadata = {
-              title: oembedData.title,
-              provider: oembedData.provider,
-            }
-            evidenceData.title = oembedData.title || undefined
-          } catch (error) {
-            console.error('Failed to fetch oEmbed data:', error)
-          }
-        } else {
-          evidenceTypeEnum = EvidenceType.URL
-          try {
-            const oembedData = await fetchOEmbed(evidenceUrl)
-            metadata = {
-              title: oembedData.title,
-              description: oembedData.description,
-              thumbnail: oembedData.thumbnail,
-              provider: oembedData.provider,
-            }
-            evidenceData.title = oembedData.title || undefined
-          } catch (error) {
-            console.error('Failed to fetch oEmbed data:', error)
-          }
-        }
-
-        evidenceData.type = evidenceTypeEnum
-        evidenceData.url = evidenceUrl
-        evidenceData.metadata = metadata
-      }
-
-      // Create evidence if we have valid data
-      if (evidenceData.type) {
-        const createdEvidence = await Evidence.create(evidenceData)
-        
-        // Update claim score since evidence is auto-approved
-        try {
-          await updateClaimScore(claim._id)
-        } catch (error) {
-          console.error('Error updating claim score after evidence creation:', error)
-          // Don't fail the request if score update fails
-        }
-
-        // Generate AI summary for evidence (async, non-blocking)
-        if (process.env.OPENAI_API_KEY) {
-          generateEvidenceSummary({
-            type: evidenceData.type.toLowerCase() as 'url' | 'file' | 'youtube' | 'tiktok' | 'instagram' | 'tweet' | 'text',
-            title: evidenceData.title,
-            description: evidenceData.description,
-            url: evidenceData.url,
-            fileUrl: evidenceData.fileUrl,
-            fileName: evidenceData.fileName,
-            fileType: evidenceData.fileType,
-            position: evidenceData.position.toLowerCase() as 'for' | 'against',
-            claimTitle: title,
-          })
-            .then(async (summary) => {
-              try {
-                await Evidence.findByIdAndUpdate(createdEvidence._id, {
-                  aiSummary: summary,
-                  summaryUpdatedAt: new Date(),
-                })
-              } catch (dbError) {
-                console.error('Error saving evidence summary to database:', dbError)
-              }
-            })
-            .catch((error) => {
-              console.warn('Evidence summary generation completed with fallback or error:', error?.message || 'Unknown error')
-            })
-        }
-      }
-    }
 
     // Generate AI summary for claim (async, non-blocking)
     if (process.env.OPENAI_API_KEY && (url || fileUrl)) {

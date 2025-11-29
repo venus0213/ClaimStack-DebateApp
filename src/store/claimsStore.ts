@@ -469,8 +469,7 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
         throw new Error(result.error || 'Failed to create claim')
       }
 
-      // Add claim to store
-      if (result.claim) {
+      if (result.claim && result.claim.status === 'approved') {
         get().addClaim(result.claim)
       }
 

@@ -114,9 +114,7 @@ export async function generateClaimSummary(
           const content = await extractImageContent(options.fileUrl, apiKey)
           extractedContent = content.text
           contentContext = `Uploaded Image Content:\n\n`
-          // If image analysis is unavailable, still generate a summary based on title/description
           if (content.metadata?.analysisUnavailable && !extractedContent.includes('Note:')) {
-            // Use a simpler approach - generate summary from title/description only
             extractedContent = ''
             contentContext = `Uploaded Image (${options.fileName || 'image'}):\n\n`
           }
@@ -127,11 +125,9 @@ export async function generateClaimSummary(
         }
       } catch (error) {
         console.error('Error extracting content from file:', error)
-        // Continue with summary generation even if content extraction fails
       }
     }
 
-    // Build prompt
     const prompt = buildClaimSummaryPrompt({
       title: options.title,
       description: options.description,
@@ -139,9 +135,8 @@ export async function generateClaimSummary(
       contentContext,
     })
 
-    // Generate summary using OpenAI
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o', // or 'gpt-4-turbo-preview' for better performance
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
@@ -161,14 +156,12 @@ export async function generateClaimSummary(
 
     return summary
   } catch (error: any) {
-    // Check if it's a country/region restriction
     const isCountryRestriction = error?.status === 403 && 
       (error?.code === 'unsupported_country_region_territory' || 
        error?.error?.code === 'unsupported_country_region_territory')
     
     if (isCountryRestriction) {
       console.warn('OpenAI API not available in this region. Cannot generate AI summary.')
-      // Return a basic summary based on available information
       const basicSummary = options.description 
         ? `${options.title}\n\n${options.description.substring(0, 300)}${options.description.length > 300 ? '...' : ''}`
         : options.title || 'Summary not available (AI service restricted in this region)'
@@ -176,7 +169,6 @@ export async function generateClaimSummary(
     }
     
     console.error('Error generating claim summary:', error?.message || error)
-    // Return a fallback summary instead of throwing
     const fallbackSummary = options.description 
       ? `${options.title}\n\n${options.description.substring(0, 300)}${options.description.length > 300 ? '...' : ''}`
       : options.title || 'Summary generation failed'
@@ -198,7 +190,6 @@ export async function generateEvidenceSummary(
   const openai = new OpenAI({ apiKey })
 
   try {
-    // Extract content based on evidence type
     let extractedContent = ''
     let contentContext = ''
 
@@ -249,9 +240,7 @@ export async function generateEvidenceSummary(
           const content = await extractImageContent(options.fileUrl, apiKey)
           extractedContent = content.text
           contentContext = `Image Content:\n\n`
-          // If image analysis is unavailable, still generate a summary based on title/description
           if (content.metadata?.analysisUnavailable && !extractedContent.includes('Note:')) {
-            // Use a simpler approach - generate summary from title/description only
             extractedContent = ''
             contentContext = `Image File (${options.fileName || 'image'}):\n\n`
           }
@@ -265,7 +254,6 @@ export async function generateEvidenceSummary(
       }
     }
 
-    // Build prompt
     const prompt = buildEvidenceSummaryPrompt({
       title: options.title,
       description: options.description,
@@ -276,7 +264,6 @@ export async function generateEvidenceSummary(
       type: options.type,
     })
 
-    // Generate summary using OpenAI
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -297,14 +284,12 @@ export async function generateEvidenceSummary(
 
     return summary
   } catch (error: any) {
-    // Check if it's a country/region restriction
     const isCountryRestriction = error?.status === 403 && 
       (error?.code === 'unsupported_country_region_territory' || 
        error?.error?.code === 'unsupported_country_region_territory')
     
     if (isCountryRestriction) {
       console.warn('OpenAI API not available in this region. Cannot generate AI summary.')
-      // Return a basic summary based on available information
       const basicSummary = options.description 
         ? `${options.title ? options.title + ': ' : ''}${options.description.substring(0, 200)}${options.description.length > 200 ? '...' : ''}`
         : options.title || 'Summary not available (AI service restricted in this region)'
@@ -312,7 +297,6 @@ export async function generateEvidenceSummary(
     }
     
     console.error('Error generating evidence summary:', error?.message || error)
-    // Return a fallback summary instead of throwing
     const fallbackSummary = options.description 
       ? `${options.title ? options.title + ': ' : ''}${options.description.substring(0, 200)}${options.description.length > 200 ? '...' : ''}`
       : options.title || 'Summary generation failed'
@@ -348,8 +332,6 @@ async function generateWithOpenAI(options: SummaryOptions): Promise<SummaryResul
 
     const content = response.choices[0]?.message?.content?.trim() || ''
     
-    // Parse the response to extract for and against summaries
-    // The AI should return structured output, but we'll handle both structured and unstructured
     const forMatch = content.match(/For[:\s]+(.*?)(?=Against|$)/is)
     const againstMatch = content.match(/Against[:\s]+(.*?)$/is)
 
@@ -358,14 +340,12 @@ async function generateWithOpenAI(options: SummaryOptions): Promise<SummaryResul
       againstSummary: againstMatch ? againstMatch[1].trim() : content.split('\n\n')[1] || 'Summary generation failed',
     }
   } catch (error: any) {
-    // Check if it's a country/region restriction
     const isCountryRestriction = error?.status === 403 && 
       (error?.code === 'unsupported_country_region_territory' || 
        error?.error?.code === 'unsupported_country_region_territory')
     
     if (isCountryRestriction) {
       console.warn('OpenAI API not available in this region. Cannot generate AI summaries.')
-      // Return fallback summaries
       return {
         forSummary: 'AI summary not available (OpenAI API restricted in this region)',
         againstSummary: 'AI summary not available (OpenAI API restricted in this region)',
@@ -373,7 +353,6 @@ async function generateWithOpenAI(options: SummaryOptions): Promise<SummaryResul
     }
     
     console.error('Error generating summaries with OpenAI:', error?.message || error)
-    // Return fallback summaries instead of throwing
     return {
       forSummary: 'Summary generation failed. Please try again later.',
       againstSummary: 'Summary generation failed. Please try again later.',
@@ -382,12 +361,6 @@ async function generateWithOpenAI(options: SummaryOptions): Promise<SummaryResul
 }
 
 async function generateWithAnthropic(options: SummaryOptions): Promise<SummaryResult> {
-  // TODO: Implement Anthropic API call
-  // const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  // const prompt = buildPrompt(options)
-  // const response = await client.messages.create({ ... })
-  
-  // Mock response for now
   return {
     forSummary: 'AI-generated summary for the "For" position based on the provided evidence...',
     againstSummary: 'AI-generated steel man summary for the "Against" position...',

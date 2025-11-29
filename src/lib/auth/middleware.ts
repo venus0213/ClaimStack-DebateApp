@@ -48,4 +48,3 @@ export async function requireAdmin(request: NextRequest): Promise<{ user: any; e
 export async function optionalAuth(request: NextRequest) {
   return await getSessionFromRequest()
 }
-

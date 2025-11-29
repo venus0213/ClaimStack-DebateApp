@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { ContentCard } from '@/components/content/ContentCard'
 import { Claim } from '@/lib/types'
@@ -11,17 +10,12 @@ import { FilterButton } from '@/components/ui/FilterButton'
 import { FilterValues } from '@/components/ui/FilterModal'
 import { ProtectedLink } from '@/components/ui/ProtectedLink'
 import { useClaimsStore } from '@/store/claimsStore'
-import { useAuth } from '@/hooks/useAuth'
-import { useRequireAuth } from '@/hooks/useRequireAuth'
-import { useRouter } from 'next/navigation'
 
 export default function HomePage() {
   const { claims, isLoading, error, fetchApprovedClaims } = useClaimsStore()
-  const { isAuthenticated } = useAuth()
-  const { requireAuth } = useRequireAuth()
-  const router = useRouter()
   const [activeButton, setActiveButton] = useState<'sort' | 'recent'>('recent')
   const [filters, setFilters] = useState<FilterValues | null>(null)
+  const [displayCount, setDisplayCount] = useState(6)
 
   // Fetch approved claims on mount
   useEffect(() => {
@@ -35,17 +29,13 @@ export default function HomePage() {
   }
 
   const handleShowMore = () => {
-    if (isAuthenticated) {
-      // Navigate to browse page when logged in
-      router.push('/browse')
-    } else {
-      // Show login modal when not logged in
-      requireAuth()
-    }
+    // Show 6 more claims
+    setDisplayCount((prev) => prev + 6)
   }
 
-  // Limit to 6 claims for the home page (always, regardless of login status)
-  const displayedClaims = claims.slice(0, 6)
+  // Display claims based on displayCount
+  const displayedClaims = claims.slice(0, displayCount)
+  const hasMoreClaims = claims.length > displayCount
 
   return (
     <div className="bg-gray-50 relative">
@@ -171,15 +161,17 @@ export default function HomePage() {
               <ContentCard key={claim.id} item={claim} />
             ))}
           </div>
-          <div className="text-center mt-6 sm:mt-8">
-            <Button 
-              variant="outline" 
-              className="px-6 sm:px-8"
-              onClick={handleShowMore}
-            >
-              Show More
-            </Button>
-          </div>
+          {hasMoreClaims && (
+            <div className="text-center mt-6 sm:mt-8">
+              <Button 
+                variant="outline" 
+                className="px-6 sm:px-8"
+                onClick={handleShowMore}
+              >
+                Show More
+              </Button>
+            </div>
+          )}
         </div>
       </section>
     </div>

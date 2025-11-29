@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Claim, Evidence, Perspective } from '@/lib/types'
 import type { Evidence as EvidenceType, Perspective as PerspectiveType } from '@/lib/types'
 import { Card } from '@/components/ui/Card'
@@ -171,8 +172,38 @@ export const ContentCard: React.FC<ContentCardProps> = ({
     }
   }
 
+  // Determine which badge to show based on upvotes (only for claims)
+  const getBadgeImage = () => {
+    if (!isClaimItem) return null
+    
+    if (upvotes >= 3) {
+      return '/images/claim_badge_3.png'
+    } else if (upvotes >= 2) {
+      return '/images/claim_badge_2.png'
+    } else if (upvotes >= 1) {
+      return '/images/claim_badge_1.png'
+    }
+    return null
+  }
+
+  const badgeImage = getBadgeImage()
+
   return (
-    <Card className="p-4 sm:p-6 rounded-2xl sm:rounded-[32px]">
+    <Card className="p-4 sm:p-6 rounded-2xl sm:rounded-[32px] relative">
+      {/* Badge in top right corner (only for claims) */}
+      {badgeImage && (
+        <div className="absolute top-2 right-4 sm:top-1 sm:right-5 z-10">
+          <Image
+            src={badgeImage}
+            alt="Claim badge"
+            width={55}
+            height={55}
+            className="w-10 h-14 sm:w-12 sm:h-16"
+            unoptimized
+          />
+        </div>
+      )}
+      
       <div className="flex items-start justify-between mb-2 sm:mb-3">
         <div className="flex items-center space-x-2">
           <span className="text-xs sm:text-sm text-[#030303] font-medium">@{user?.username || 'user'}</span>
@@ -261,11 +292,11 @@ export const ContentCard: React.FC<ContentCardProps> = ({
       <div className="border-t border-gray-200 pt-3 sm:pt-4 mt-3 sm:mt-4">
         <div className="flex items-center justify-between gap-2 sm:gap-4">
           <Button
-            variant="secondary"
+            variant="primary"
             size="sm"
             onClick={handleFollow}
             disabled={isFollowingAction}
-            className="bg-black text-white hover:bg-gray-800 rounded-full text-xs sm:text-sm px-3 sm:px-4 flex-shrink-0"
+            className="text-white rounded-full text-xs sm:text-sm px-3 sm:px-4 flex-shrink-0"
           >
             {isFollowing ? 'Following' : 'Follow'}
           </Button>
@@ -276,6 +307,8 @@ export const ContentCard: React.FC<ContentCardProps> = ({
             userVote={userVote}
             onVote={handleVote}
             disabled={isVoting}
+            itemId={itemId}
+            itemType={itemType}
           />
         </div>
       </div>

@@ -11,16 +11,13 @@ export interface ExtractedContent {
   }
 }
 
-/**
- * Extract text content from a web page URL
- */
 export async function extractWebPageContent(url: string): Promise<ExtractedContent> {
   try {
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      signal: AbortSignal.timeout(10000),
     })
 
     if (!response.ok) {
@@ -29,26 +26,21 @@ export async function extractWebPageContent(url: string): Promise<ExtractedConte
 
     const html = await response.text()
     
-    // Extract text content from HTML (basic extraction)
-    // Remove script and style tags
     const text = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .substring(0, 50000) // Limit to 50k characters
+      .substring(0, 50000)
 
-    // Extract metadata from Open Graph and meta tags
     const metadata: Record<string, any> = {}
     
-    // Extract title
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i) || 
                       html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
                       html.match(/<meta[^>]*name=["']title["'][^>]*content=["']([^"']+)["']/i)
     if (titleMatch) metadata.title = titleMatch[1].trim()
 
-    // Extract description
     const descMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
                      html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
     if (descMatch) metadata.description = descMatch[1].trim()
@@ -65,12 +57,9 @@ export async function extractWebPageContent(url: string): Promise<ExtractedConte
 
 /**
  * Extract content from YouTube video URL
- * Note: This is a placeholder - actual implementation would require YouTube API
  */
 export async function extractYouTubeContent(url: string): Promise<ExtractedContent> {
   try {
-    // For now, we'll extract the video ID and fetch basic info
-    // In production, you might want to use YouTube Data API v3 to get transcript
     const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)
     const videoId = videoIdMatch ? videoIdMatch[1] : null
 
@@ -78,7 +67,6 @@ export async function extractYouTubeContent(url: string): Promise<ExtractedConte
       throw new Error('Invalid YouTube URL')
     }
 
-    // Try to fetch oEmbed data for metadata
     try {
       const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
       const response = await fetch(oembedUrl, { signal: AbortSignal.timeout(5000) })
@@ -122,11 +110,9 @@ export async function extractSocialMediaContent(url: string, platform: 'twitter'
         oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`
         break
       case 'tiktok':
-        // TikTok oEmbed endpoint
         oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
         break
       case 'instagram':
-        // Instagram oEmbed requires access token, so we'll try basic fetch
         oembedUrl = `https://api.instagram.com/oembed?url=${encodeURIComponent(url)}`
         break
     }
@@ -150,7 +136,6 @@ export async function extractSocialMediaContent(url: string, platform: 'twitter'
       }
     }
 
-    // Fallback: try to fetch the page directly
     try {
       const response = await fetch(url, {
         headers: {
@@ -161,7 +146,6 @@ export async function extractSocialMediaContent(url: string, platform: 'twitter'
       
       if (response.ok) {
         const html = await response.text()
-        // Extract text from meta tags
         const titleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
         const descMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)
         
@@ -192,7 +176,6 @@ export async function extractSocialMediaContent(url: string, platform: 'twitter'
 
 /**
  * Extract text from an image URL using OpenAI Vision API
- * Returns a fallback result if Vision API is not available (e.g., country restrictions)
  */
 export async function extractImageContent(imageUrl: string, openaiApiKey: string): Promise<ExtractedContent> {
   try {
@@ -200,7 +183,7 @@ export async function extractImageContent(imageUrl: string, openaiApiKey: string
     const openai = new OpenAI({ apiKey: openaiApiKey })
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o', // or 'gpt-4-vision-preview'
+      model: 'gpt-4o',
       messages: [
         {
           role: 'user',
@@ -230,14 +213,12 @@ export async function extractImageContent(imageUrl: string, openaiApiKey: string
       },
     }
   } catch (error: any) {
-    // Check if it's a country/region restriction or other API limitation
     const isCountryRestriction = error?.status === 403 && 
       (error?.code === 'unsupported_country_region_territory' || 
        error?.error?.code === 'unsupported_country_region_territory')
     
     if (isCountryRestriction) {
       console.warn('OpenAI Vision API not available in this region. Using fallback for image analysis.')
-      // Return a fallback that indicates image analysis is not available
       return {
         text: `Image file available at: ${imageUrl}\nNote: Image analysis is not available in this region. Please provide a description manually.`,
         metadata: {
@@ -247,7 +228,6 @@ export async function extractImageContent(imageUrl: string, openaiApiKey: string
       }
     }
     
-    // For other errors, log and return fallback
     console.error('Error extracting image content:', error?.message || error)
     return {
       text: `Image file available at: ${imageUrl}\nNote: Could not analyze image content automatically.`,
@@ -264,8 +244,6 @@ export async function extractImageContent(imageUrl: string, openaiApiKey: string
  */
 export async function extractDocumentContent(fileUrl: string, fileType: string): Promise<ExtractedContent> {
   try {
-    // For now, we'll handle text-based files
-    // For PDFs and other formats, you might need additional libraries like pdf-parse
     
     if (fileType.startsWith('text/') || fileType === 'application/json') {
       const response = await fetch(fileUrl, { signal: AbortSignal.timeout(10000) })
@@ -274,15 +252,13 @@ export async function extractDocumentContent(fileUrl: string, fileType: string):
       }
       const text = await response.text()
       return {
-        text: text.substring(0, 50000), // Limit to 50k characters
+        text: text.substring(0, 50000),
         metadata: {
           type: fileType,
         },
       }
     }
 
-    // For PDFs, you would need a library like pdf-parse
-    // For now, return a placeholder
     if (fileType === 'application/pdf') {
       return {
         text: `PDF document at ${fileUrl}. PDF text extraction requires additional processing.`,
@@ -303,4 +279,3 @@ export async function extractDocumentContent(fileUrl: string, fileType: string):
     throw new Error(`Failed to extract document content: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
-

@@ -214,7 +214,7 @@ export default function SignupPage() {
             )}
 
             <div className="flex justify-center items-center pt-8 sm:pt-12 lg:pt-14">
-              <Button type="submit" variant="primary" className="w-full rounded-full bg-[#030303] hover:bg-gray-800 text-white text-sm sm:text-base" isLoading={isLoading}>
+              <Button type="submit" variant="primary" className="w-full rounded-full text-white text-sm sm:text-base" isLoading={isLoading}>
                 Sign Up
               </Button>
             </div>

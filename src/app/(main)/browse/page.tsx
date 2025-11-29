@@ -7,6 +7,8 @@ import { SearchIcon } from '@/components/ui/Icons'
 import { FilterButton } from '@/components/ui/FilterButton'
 import { FilterValues } from '@/components/ui/FilterModal'
 import { useClaimsStore } from '@/store/claimsStore'
+import { TopUsers } from '@/components/users/TopUsers'
+import { PopularClaimsCarousel } from '@/components/claims/PopularClaimsCarousel'
 
 const sortOptions = [
   { id: 'newest', label: 'Newest' },
@@ -33,8 +35,8 @@ export default function BrowsePage() {
     console.log('Filters applied:', newFilters)
   }
 
-  // Filter claims based on search query
   const filteredClaims = claims.filter((claim) => {
+    if (claim.status !== 'approved') return false
     if (!searchQuery) return true
     const query = searchQuery.toLowerCase()
     return (
@@ -42,6 +44,43 @@ export default function BrowsePage() {
       claim.description?.toLowerCase().includes(query) ||
       claim.user?.username.toLowerCase().includes(query)
     )
+  })
+
+  // Sort claims based on activeTab
+  const sortedClaims = [...filteredClaims].sort((a, b) => {
+    switch (activeTab) {
+      case 'newest':
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      
+      case 'oldest':
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      
+      case 'most-voted':
+        const aVotes = a.upvotes || 0
+        const bVotes = b.upvotes || 0
+        if (bVotes !== aVotes) {
+          return bVotes - aVotes
+        }
+        // Secondary sort by newest if votes are equal
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      
+      case 'most-viewed':
+        const aViews = a.viewCount || 0
+        const bViews = b.viewCount || 0
+        return bViews - aViews
+      
+      case 'most-followed':
+        const aFollows = a.followCount || 0
+        const bFollows = b.followCount || 0
+        if (bFollows !== aFollows) {
+          return bFollows - aFollows
+        }
+        // Secondary sort by newest if follows are equal
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      
+      default:
+        return 0
+    }
   })
 
   return (
@@ -62,6 +101,15 @@ export default function BrowsePage() {
                 className="w-full pl-10 sm:pl-12 pr-4 py-2 sm:py-3 bg-gray-100 border border-gray-200 rounded-full text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
+          </div>
+        </div>
+        
+        <div className='flex flex-col sm:flex-row gap-4 sm:gap-4'>
+          <div className='w-full sm:w-1/2'>
+            <TopUsers />
+          </div>
+          <div className='w-full sm:w-1/2'>
+            <PopularClaimsCarousel className='sm:mt-8'/>
           </div>
         </div>
 
@@ -102,14 +150,14 @@ export default function BrowsePage() {
           </div>
         )}
 
-        {!isLoading && !error && filteredClaims.length === 0 && (
+        {!isLoading && !error && sortedClaims.length === 0 && (
           <div className="text-center py-8">
             <p className="text-gray-600">No approved claims found.</p>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          {filteredClaims.map((claim) => (
+          {sortedClaims.map((claim) => (
             <ContentCard key={claim.id} item={claim} />
           ))}
         </div>

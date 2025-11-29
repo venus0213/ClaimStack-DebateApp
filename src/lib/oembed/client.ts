@@ -60,7 +60,6 @@ async function fetchYouTubeOEmbed(url: string): Promise<OEmbedData> {
     console.error('Failed to fetch YouTube oEmbed:', error)
   }
   
-  // Fallback
   return {
     type: 'video',
     title: 'YouTube Video',
@@ -92,7 +91,6 @@ async function fetchTikTokOEmbed(url: string): Promise<OEmbedData> {
     console.error('Failed to fetch TikTok oEmbed:', error)
   }
   
-  // Fallback
   return {
     type: 'video',
     title: 'TikTok Video',
@@ -103,8 +101,6 @@ async function fetchTikTokOEmbed(url: string): Promise<OEmbedData> {
 
 async function fetchInstagramOEmbed(url: string): Promise<OEmbedData> {
   try {
-    // Instagram oEmbed requires access token, but we can try without it for basic info
-    // Note: Instagram oEmbed API may require authentication
     const oembedUrl = `https://api.instagram.com/oembed?url=${encodeURIComponent(url)}`
     const response = await fetch(oembedUrl, { signal: AbortSignal.timeout(5000) })
     
@@ -126,7 +122,6 @@ async function fetchInstagramOEmbed(url: string): Promise<OEmbedData> {
     console.error('Failed to fetch Instagram oEmbed:', error)
   }
   
-  // Fallback
   return {
     type: 'rich',
     title: 'Instagram Post',
@@ -157,7 +152,6 @@ async function fetchTwitterOEmbed(url: string): Promise<OEmbedData> {
     console.error('Failed to fetch Twitter oEmbed:', error)
   }
   
-  // Fallback
   return {
     type: 'rich',
     title: 'Tweet',
@@ -167,7 +161,6 @@ async function fetchTwitterOEmbed(url: string): Promise<OEmbedData> {
 }
 
 async function fetchGenericOEmbed(url: string): Promise<OEmbedData> {
-  // Try to fetch Open Graph metadata
   try {
     const response = await fetch(url, {
       headers: {
@@ -179,7 +172,6 @@ async function fetchGenericOEmbed(url: string): Promise<OEmbedData> {
     if (response.ok) {
       const html = await response.text()
       
-      // Extract Open Graph metadata
       const titleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
                         html.match(/<title[^>]*>([^<]+)<\/title>/i)
       const descMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
@@ -200,7 +192,6 @@ async function fetchGenericOEmbed(url: string): Promise<OEmbedData> {
     console.error('Failed to fetch generic oEmbed:', error)
   }
   
-  // Fallback
   return {
     type: 'link',
     title: 'Link',
