@@ -52,13 +52,13 @@ export const TopUsers: React.FC = () => {
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
           Top Users
         </h2>
-        <div className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide pb-2">
+        <div className="flex gap-3 sm:gap-8 overflow-x-auto scrollbar-hide pb-2">
           {[...Array(5)].map((_, i) => (
             <div
               key={i}
-              className="flex-shrink-0 w-20 sm:w-40 animate-pulse"
+              className="flex-shrink-0 w-24 sm:w-48 animate-pulse"
             >
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gray-200 dark:bg-gray-700 mb-2" />
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gray-200 dark:bg-gray-700 mb-2" />
               <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
             </div>
           ))}
@@ -76,32 +76,78 @@ export const TopUsers: React.FC = () => {
       <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
         Top Users
       </h2>
-      <div className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide pb-2 pt-2 scroll-smooth">
-        {users.map((user) => {
+      <div className="flex gap-3 sm:gap-8 overflow-x-auto scrollbar-hide pb-2 pt-5 pl-2 scroll-smooth">
+        {users.map((user, index) => {
           const avatarUrl = user.avatarUrl || '/icons/user.png'
           const displayName =
             user.firstName && user.lastName
               ? `${user.firstName} ${user.lastName}`
               : user.username
 
+          // Determine border color based on rank
+          const getBorderColor = () => {
+            if (index === 0) {
+              return 'border-yellow-500 dark:border-yellow-400' // Gold
+            } else if (index === 1) {
+              return 'border-gray-400 dark:border-gray-300' // Silver
+            } else if (index === 2) {
+              return 'border-orange-600 dark:border-orange-500' // Bronze
+            }
+            return 'border-blue-500 dark:border-blue-400' // Default blue
+          }
+
+          // Determine shadow effect based on rank
+          const getShadowEffect = () => {
+            if (index === 0) {
+              return 'shadow-lg shadow-yellow-500/30 dark:shadow-yellow-400/30 group-hover:shadow-xl group-hover:shadow-yellow-500/40 dark:group-hover:shadow-yellow-400/40' // Gold shadow
+            } else if (index === 1) {
+              return 'shadow-lg shadow-gray-400/30 dark:shadow-gray-300/30 group-hover:shadow-xl group-hover:shadow-gray-400/40 dark:group-hover:shadow-gray-300/40' // Silver shadow
+            } else if (index === 2) {
+              return 'shadow-lg shadow-orange-600/30 dark:shadow-orange-500/30 group-hover:shadow-xl group-hover:shadow-orange-600/40 dark:group-hover:shadow-orange-500/40' // Bronze shadow
+            }
+            return 'shadow-lg shadow-blue-500/20 dark:shadow-blue-400/20 group-hover:shadow-xl group-hover:shadow-blue-500/30 dark:group-hover:shadow-blue-400/30' // Default blue shadow
+          }
+
+          // Get badge image for top 3 users
+          const getBadgeImage = () => {
+            if (index === 0) return '/images/claim_user_1.png'
+            if (index === 1) return '/images/claim_user_2.png'
+            if (index === 2) return '/images/claim_user_3.png'
+            return null
+          }
+
+          const badgeImage = getBadgeImage()
+
           return (
             <div
               key={user.id}
               className="flex-shrink-0 flex flex-col items-center group cursor-pointer transition-transform hover:scale-105"
             >
-              <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-2">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-blue-500 dark:border-blue-400 flex items-center justify-center overflow-hidden bg-white dark:bg-gray-800 shadow-sm group-hover:shadow-md transition-shadow">
+              <div className="relative w-20 h-20 sm:w-24 sm:h-24 mb-2 mt-5">
+                <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 ${getBorderColor()} flex items-center justify-center overflow-hidden bg-white dark:bg-gray-800 ${getShadowEffect()} transition-shadow duration-300`}>
                   <Image
                     src={avatarUrl}
                     alt={displayName}
-                    width={80}
-                    height={80}
+                    width={96}
+                    height={96}
                     className="w-full h-full object-cover"
                     unoptimized
                   />
                 </div>
+                {badgeImage && (
+                  <div className="absolute -top-[22px] -right-1 sm:-top-7 sm:-right-1.5 z-10">
+                    <Image
+                      src={badgeImage}
+                      alt={`Rank ${index + 1} badge`}
+                      width={32}
+                      height={32}
+                      className="w-12 h-8 sm:w-14 sm:h-10 rotate-[25deg] sm:rotate-[25deg]"
+                      unoptimized
+                    />
+                  </div>
+                )}
               </div>
-              <div className="text-center max-w-[80px] sm:max-w-[100px]">
+              <div className="text-center max-w-[80px] sm:max-w-[120px]">
                 <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 truncate w-full group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {user.username}
                 </p>

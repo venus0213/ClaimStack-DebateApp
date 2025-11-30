@@ -14,6 +14,7 @@ export interface VoteButtonsProps {
   disabled?: boolean
   itemId?: string
   itemType?: 'claim' | 'evidence' | 'perspective'
+  onDropdownChange?: (isOpen: boolean) => void // Callback when dropdown opens/closes
 }
 
 interface Voter {
@@ -32,6 +33,7 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
   disabled,
   itemId,
   itemType,
+  onDropdownChange,
 }) => {
   const { requireAuth } = useRequireAuth()
   const [upvotes, setUpvotes] = useState(initialUpvotes)
@@ -71,6 +73,12 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Notify parent when dropdown state changes
+  useEffect(() => {
+    const isOpen = showUpvoteDropdown || showDownvoteDropdown
+    onDropdownChange?.(isOpen)
+  }, [showUpvoteDropdown, showDownvoteDropdown, onDropdownChange])
 
   // Fetch voters when dropdown opens
   const fetchVoters = async (voteType: 'upvote' | 'downvote') => {
@@ -132,6 +140,8 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
         }
       }
       setShowDownvoteDropdown(false)
+      // Notify parent about dropdown state change
+      onDropdownChange?.(newState)
     } else {
       const newState = !showDownvoteDropdown
       setShowDownvoteDropdown(newState)
@@ -143,6 +153,8 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
         }
       }
       setShowUpvoteDropdown(false)
+      // Notify parent about dropdown state change
+      onDropdownChange?.(newState)
     }
   }
 
@@ -268,7 +280,7 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
   return (
     <div className="flex items-center gap-1 sm:gap-2">
       {/* Upvote Button with Dropdown */}
-      <div ref={upvoteDropdownRef} className="relative">
+      <div ref={upvoteDropdownRef} className="relative z-[100]">
         <button
           ref={upvoteButtonRef}
           onClick={(e) => {
@@ -290,7 +302,7 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
 
         {showUpvoteDropdown && (
           <div className={cn(
-            'absolute right-0 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-lg z-50',
+            'absolute right-0 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-lg z-[100]',
             upvoteDropdownDirection === 'down' ? 'top-full mt-2' : 'bottom-full mb-2'
           )}>
             {/* Vote Button at Top */}
@@ -323,7 +335,7 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
       </div>
 
       {/* Downvote Button with Dropdown */}
-      <div ref={downvoteDropdownRef} className="relative">
+      <div ref={downvoteDropdownRef} className="relative z-[100]">
         <button
           ref={downvoteButtonRef}
           onClick={(e) => {
@@ -345,7 +357,7 @@ export const VoteButtons: React.FC<VoteButtonsProps> = ({
 
         {showDownvoteDropdown && (
           <div className={cn(
-            'absolute right-0 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-lg z-50',
+            'absolute right-0 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-lg z-[100]',
             downvoteDropdownDirection === 'down' ? 'top-full mt-2' : 'bottom-full mb-2'
           )}>
             {/* Vote Button at Top */}

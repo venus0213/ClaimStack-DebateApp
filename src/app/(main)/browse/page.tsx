@@ -108,12 +108,12 @@ export default function BrowsePage() {
           <div className='w-full sm:w-1/2'>
             <TopUsers />
           </div>
-          <div className='w-full sm:w-1/2'>
+          <div className='w-full sm:w-1/2 '>
             <PopularClaimsCarousel className='sm:mt-8'/>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6 mt-10 sm:mt-6">
           <div className="flex items-center gap-2 overflow-x-auto scroll-smooth scrollbar-hide">
             {sortOptions.map((option) => (
               <button

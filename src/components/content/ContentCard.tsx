@@ -13,6 +13,7 @@ import { ProtectedLink } from '@/components/ui/ProtectedLink'
 import { Modal } from '@/components/ui/Modal'
 import { useVote } from '@/hooks/useVote'
 import { useFollow } from '@/hooks/useFollow'
+import { cn } from '@/lib/utils/cn'
 
 interface ContentCardProps {
   item: Claim | Evidence | Perspective
@@ -113,6 +114,9 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   // State for delete confirmation modal
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  
+  // State to track if vote dropdown is open
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   // Check if description exceeds 2 lines
   useEffect(() => {
@@ -176,11 +180,11 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   const getBadgeImage = () => {
     if (!isClaimItem) return null
     
-    if (upvotes >= 3) {
+    if (upvotes >= 15) {
       return '/images/claim_badge_3.png'
-    } else if (upvotes >= 2) {
+    } else if (upvotes >= 10) {
       return '/images/claim_badge_2.png'
-    } else if (upvotes >= 1) {
+    } else if (upvotes >= 5) {
       return '/images/claim_badge_1.png'
     }
     return null
@@ -189,10 +193,13 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   const badgeImage = getBadgeImage()
 
   return (
-    <Card className="p-4 sm:p-6 rounded-2xl sm:rounded-[32px] relative">
+    <Card className={cn(
+      "p-4 sm:p-6 rounded-2xl sm:rounded-[32px] relative transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-lg dark:hover:shadow-xl hover:shadow-blue-200/50 dark:hover:shadow-blue-900/30 hover:-translate-y-1",
+      isDropdownOpen ? "z-50" : "hover:z-10"
+    )}>
       {/* Badge in top right corner (only for claims) */}
       {badgeImage && (
-        <div className="absolute top-2 right-4 sm:top-4 sm:right-5 z-10">
+        <div className="absolute top-2 right-4 sm:top-4 sm:right-5 z-10 transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-6">
           <Image
             src={badgeImage}
             alt="Claim badge"
@@ -309,6 +316,7 @@ export const ContentCard: React.FC<ContentCardProps> = ({
             disabled={isVoting}
             itemId={itemId}
             itemType={itemType}
+            onDropdownChange={setIsDropdownOpen}
           />
         </div>
       </div>

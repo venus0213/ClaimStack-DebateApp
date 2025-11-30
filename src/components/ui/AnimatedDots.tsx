@@ -49,7 +49,7 @@ export function AnimatedDots() {
       const colorSet = generateRandomColor()
       return {
         id: i,
-        size: Math.random() * 3 + 2, // Size between 2-5px (reduced)
+        size: Math.random() * 3 + 3, // Size between 3-6px
         left: Math.random() * 100, // Random horizontal position
         top: Math.random() * 100, // Random vertical position
         duration: Math.random() * 12 + 8, // Animation duration 8-20s (faster)
