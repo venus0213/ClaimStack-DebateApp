@@ -192,13 +192,13 @@ export const ContentCard: React.FC<ContentCardProps> = ({
     <Card className="p-4 sm:p-6 rounded-2xl sm:rounded-[32px] relative">
       {/* Badge in top right corner (only for claims) */}
       {badgeImage && (
-        <div className="absolute top-2 right-4 sm:top-1 sm:right-5 z-10">
+        <div className="absolute top-2 right-4 sm:top-4 sm:right-5 z-10">
           <Image
             src={badgeImage}
             alt="Claim badge"
             width={55}
             height={55}
-            className="w-10 h-14 sm:w-12 sm:h-16"
+            className="w-10 h-10 sm:w-12 sm:h-12"
             unoptimized
           />
         </div>
