@@ -55,33 +55,67 @@ export const Footer: React.FC = () => {
   return (
     <footer className="bg-gray-900 dark:bg-gray-950 text-gray-300 dark:text-gray-400 transition-colors">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10 mb-8">
+        <div className="flex items-center space-x-6 mt-5 mb-10">
+          <Image
+            src="/images/logo.png"
+            alt="ClaimStack Logo"
+            width={32}
+            height={32}
+            className="w-12 h-12"
+          />
+          <h3 className="text-white text-4xl sm:text-xl font-semibold">ClaimStack</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-10 mb-8">
           {/* Brand Section */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Image
-                src="/images/logo.png"
-                alt="ClaimStack Logo"
-                width={32}
-                height={32}
-                className="w-8 h-8"
-              />
-              <h3 className="text-white text-lg sm:text-xl font-semibold">ClaimStack</h3>
-            </div>
             <p className="text-xs sm:text-sm leading-relaxed">
               Join the conversation. Share your perspective. Build your argument.
             </p>
             <p className="text-xs sm:text-sm">© {currentYear} Digital Marketing School, LLC.</p>
           </div>
 
-          {/* Links Section */}
-          <div className="grid grid-cols-2 gap-6 sm:gap-8">
+          {/* Company Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10 mb-8">
             <div>
-              <h4 className="text-white font-medium mb-3 sm:mb-4 text-sm sm:text-base">Company</h4>
+              <h4 className="text-white font-medium mb-3 sm:mb-4 text-sm sm:text-lg">Company</h4>
               <ul className="space-y-2 text-xs sm:text-sm">
                 <li>
                   <Link href="/about" className="hover:text-white transition-colors">
                     About
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/how-it-works" className="hover:text-white transition-colors">
+                    How it Works
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Support Section */}
+            <div>
+              <h4 className="text-white font-medium mb-3 sm:mb-4 text-sm sm:text-lg">Support</h4>
+              <ul className="space-y-2 text-xs sm:text-sm">
+                <li>
+                  <Link href="/contact" className="hover:text-white transition-colors">
+                    Contact Us
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/faq" className="hover:text-white transition-colors">
+                    FAQ
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Legal Section */}
+            <div>
+              <h4 className="text-white font-medium mb-3 sm:mb-4 text-sm sm:text-lg">Legal</h4>
+              <ul className="space-y-2 text-xs sm:text-sm">
+                <li>
+                  <Link href="/terms" className="hover:text-white transition-colors">
+                    Terms of Use
                   </Link>
                 </li>
                 <li>
@@ -90,32 +124,19 @@ export const Footer: React.FC = () => {
                   </Link>
                 </li>
                 <li>
-                  {/* <Link href="/legal" className="hover:text-white transition-colors"> */}
-                    Legal
-                  {/* </Link> */}
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-white font-medium mb-3 sm:mb-4 text-sm sm:text-base">Explore</h4>
-              <ul className="space-y-2 text-xs sm:text-sm">
-                <li>
-                  {/* <Link href="/browse" className="hover:text-white transition-colors"> */}
-                    Category
-                  {/* </Link> */}
-                </li>
-                <li>
-                  {/* <Link href="/browse?sort=trending" className="hover:text-white transition-colors"> */}
-                    Trending
-                  {/* </Link> */}
+                  <Link href="/community-guidelines" className="hover:text-white transition-colors">
+                    Community Guidelines
+                  </Link>
                 </li>
               </ul>
             </div>
           </div>
+        </div>
 
-          {/* Social Media Section */}
-          <div>
-            <h4 className="text-white font-medium mb-3 sm:mb-4 text-sm sm:text-base">Follow Us</h4>
+        {/* Social Media Section */}
+        <div className="border-t border-gray-800 dark:border-gray-800 pt-6 mb-6">
+          <div className="flex flex-col sm:flex-col items-center sm:items-start justify-between gap-4 sm:py-3">
+            <h4 className="text-white font-medium text-sm sm:text-lg">Follow Us</h4>
             <div className="flex flex-wrap gap-3 sm:gap-4">
               {socialLinks.map((social) => {
                 const Icon = social.icon
