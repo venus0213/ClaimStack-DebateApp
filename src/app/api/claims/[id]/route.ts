@@ -6,13 +6,17 @@ import { ClaimFollow, ClaimVote, VoteType } from '@/lib/db/models'
 import { ModerationLog, ModerationAction } from '@/lib/db/models'
 import { Evidence } from '@/lib/db/models'
 import { Perspective } from '@/lib/db/models'
+import { Vote } from '@/lib/db/models'
+import { PerspectiveVote } from '@/lib/db/models'
+import { EvidenceFollow } from '@/lib/db/models'
+import { PerspectiveFollow } from '@/lib/db/models'
 import { updateClaimScore } from '@/lib/utils/claimScore'
 import { deleteFile } from '@/lib/storage/upload'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
 const updateClaimStatusSchema = z.object({
-  status: z.enum(['pending', 'approved', 'rejected', 'flagged']),
+  status: z.enum(['pending', 'approved', 'rejected', 'flagged', 'closed']),
   reason: z.string().optional(),
   metadata: z.record(z.any()).optional(),
 })
@@ -282,6 +286,8 @@ export async function PATCH(
       moderationAction = ModerationAction.REJECT_CLAIM
     } else if (newStatus === ClaimStatus.FLAGGED) {
       moderationAction = ModerationAction.FLAG_CLAIM
+    } else if (newStatus === ClaimStatus.CLOSED) {
+      moderationAction = ModerationAction.APPROVE_CLAIM // Use approve as fallback for closed
     } else {
       moderationAction = ModerationAction.APPROVE_CLAIM // Default fallback
     }
@@ -416,12 +422,15 @@ export async function DELETE(
       )
     }
 
-    // Check if user owns the claim
+    // Check if user owns the claim or is an admin
+    const userRole = user.role?.toUpperCase()
+    const isAdmin = userRole === 'ADMIN'
+    
     const claimUserId = claim.userId instanceof mongoose.Types.ObjectId
       ? claim.userId.toString()
       : (claim.userId as any)?._id?.toString() || (claim.userId as any).toString()
     
-    if (claimUserId !== user.userId) {
+    if (claimUserId !== user.userId && !isAdmin) {
       return NextResponse.json(
         { 
           success: false,
@@ -444,8 +453,11 @@ export async function DELETE(
       }
     }
 
-    // Delete related evidence files
+    // Get all evidence and perspectives for this claim before deletion
     const evidenceList = await Evidence.find({ claimId: claim._id })
+    const perspectiveList = await Perspective.find({ claimId: claim._id })
+
+    // Delete related evidence files and their associated data
     for (const evidence of evidenceList) {
       if (evidence.fileUrl) {
         try {
@@ -454,10 +466,12 @@ export async function DELETE(
           console.error('Error deleting evidence file:', error)
         }
       }
+      // Delete votes and follows for this evidence
+      await Vote.deleteMany({ evidenceId: evidence._id })
+      await EvidenceFollow.deleteMany({ evidenceId: evidence._id })
     }
 
-    // Delete related perspective files
-    const perspectiveList = await Perspective.find({ claimId: claim._id })
+    // Delete related perspective files and their associated data
     for (const perspective of perspectiveList) {
       if (perspective.fileUrl) {
         try {
@@ -466,10 +480,12 @@ export async function DELETE(
           console.error('Error deleting perspective file:', error)
         }
       }
+      // Delete votes and follows for this perspective
+      await PerspectiveVote.deleteMany({ perspectiveId: perspective._id })
+      await PerspectiveFollow.deleteMany({ perspectiveId: perspective._id })
     }
 
-    // Delete the claim (this will cascade delete related data if schema is set up correctly)
-    // But we'll also explicitly delete to be safe
+    // Delete the claim and all related data
     await ClaimVote.deleteMany({ claimId: claim._id })
     await ClaimFollow.deleteMany({ claimId: claim._id })
     await Evidence.deleteMany({ claimId: claim._id })

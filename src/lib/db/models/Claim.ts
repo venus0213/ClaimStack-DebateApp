@@ -5,6 +5,7 @@ export enum ClaimStatus {
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
   FLAGGED = 'FLAGGED',
+  CLOSED = 'CLOSED', // Discussion ended
 }
 
 export interface IClaim extends Document {

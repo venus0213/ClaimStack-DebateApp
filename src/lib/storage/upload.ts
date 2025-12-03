@@ -32,19 +32,7 @@ function getSupabaseClient() {
 }
 
 export async function uploadFile(file: File, folder: string = 'uploads'): Promise<UploadResult> {
-  const storageType = process.env.STORAGE_TYPE || 'supabase'
-
-  if (storageType === 's3') {
-    return uploadToS3(file, folder)
-  } else {
-    return uploadToSupabase(file, folder)
-  }
-}
-
-async function uploadToS3(file: File, folder: string): Promise<UploadResult> {
-  
-  // TODO: Implement S3 upload
-  throw new Error('S3 upload not implemented')
+  return uploadToSupabase(file, folder)
 }
 
 async function uploadToSupabase(file: File, folder: string): Promise<UploadResult> {
@@ -119,14 +107,7 @@ async function uploadToSupabase(file: File, folder: string): Promise<UploadResul
 }
 
 export async function deleteFile(fileUrl: string): Promise<void> {
-  const storageType = process.env.STORAGE_TYPE || 'supabase'
-
-  if (storageType === 's3') {
-    // TODO: Implement S3 deletion
-    throw new Error('S3 deletion not implemented')
-  } else {
-    await deleteFromSupabase(fileUrl)
-  }
+  await deleteFromSupabase(fileUrl)
 }
 
 async function deleteFromSupabase(fileUrl: string): Promise<void> {

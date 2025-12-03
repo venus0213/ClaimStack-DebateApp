@@ -249,12 +249,15 @@ export async function DELETE(
       )
     }
 
-    // Check if user owns the perspective
+    // Check if user owns the perspective or is an admin
+    const userRole = user.role?.toUpperCase()
+    const isAdmin = userRole === 'ADMIN'
+    
     const perspectiveUserId = perspective.userId instanceof mongoose.Types.ObjectId
       ? perspective.userId.toString()
       : (perspective.userId as any)?._id?.toString() || (perspective.userId as any).toString()
     
-    if (perspectiveUserId !== user.userId) {
+    if (perspectiveUserId !== user.userId && !isAdmin) {
       return NextResponse.json(
         { 
           success: false,

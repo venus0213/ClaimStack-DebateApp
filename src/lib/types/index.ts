@@ -18,7 +18,7 @@ export interface Claim {
   title: string
   description?: string
   categoryId?: string
-  status: 'pending' | 'approved' | 'rejected' | 'flagged'
+  status: 'pending' | 'approved' | 'rejected' | 'flagged' | 'closed'
   forSummary?: string
   againstSummary?: string
   summaryUpdatedAt?: Date
@@ -58,7 +58,7 @@ export interface Evidence {
   fileSize?: number
   fileType?: string
   metadata?: Record<string, any>
-  status: 'pending' | 'approved' | 'rejected' | 'flagged'
+  status: 'pending' | 'approved' | 'rejected' | 'flagged' | 'closed'
   upvotes: number
   downvotes: number
   score: number
@@ -116,7 +116,7 @@ export interface Perspective {
   fileSize?: number
   fileType?: string
   metadata?: Record<string, any>
-  status: 'pending' | 'approved' | 'rejected' | 'flagged'
+  status: 'pending' | 'approved' | 'rejected' | 'flagged' | 'closed'
   upvotes: number
   downvotes: number
   score: number

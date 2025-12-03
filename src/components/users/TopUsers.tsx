@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
+import { useAuth } from '@/hooks/useAuth'
 
 interface TopUser {
   id: string
@@ -16,6 +18,7 @@ export const TopUsers: React.FC = () => {
   const [users, setUsers] = useState<TopUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { user: currentUser } = useAuth()
 
   useEffect(() => {
     const fetchTopUsers = async () => {
@@ -119,8 +122,9 @@ export const TopUsers: React.FC = () => {
           const badgeImage = getBadgeImage()
 
           return (
-            <div
+            <Link
               key={user.id}
+              href={currentUser?.id === user.id ? '/profile' : `/users/${user.id}`}
               className="flex-shrink-0 flex flex-col items-center group cursor-pointer transition-transform hover:scale-105"
             >
               <div className="relative w-20 h-20 sm:w-24 sm:h-24 mb-2 mt-5">
@@ -155,7 +159,7 @@ export const TopUsers: React.FC = () => {
                   {user.totalUpvotes} {user.totalUpvotes === 1 ? 'upvote' : 'upvotes'}
                 </p>
               </div>
-            </div>
+            </Link>
           )
         })}
       </div>
