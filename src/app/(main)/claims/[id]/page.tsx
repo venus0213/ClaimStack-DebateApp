@@ -22,6 +22,7 @@ import { useClaimsStore } from '@/store/claimsStore'
 import { useEvidenceStore } from '@/store/evidenceStore'
 import { useRef } from 'react'
 import { MediaDisplay } from '@/components/moderation/MediaDisplay'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function ClaimDetailPage() {
   const params = useParams()
@@ -35,13 +36,68 @@ export default function ClaimDetailPage() {
   
   const { currentClaim, setCurrentClaim, updateClaim } = useClaimsStore()
   const { evidence, perspectives, setEvidence, setPerspectives, updateEvidence, updatePerspective } = useEvidenceStore()
+  const { user: currentUser } = useAuth()
   const [loading, setLoading] = useState(true)
   const [claimLoading, setClaimLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<FilterValues | null>(null)
+  const [titleEditor, setTitleEditor] = useState<{ username: string } | null>(null)
+  const [descriptionEditor, setDescriptionEditor] = useState<{ username: string } | null>(null)
   
   // Use claim from store or local state - only use it if it matches the current claimId
   const claim = currentClaim && currentClaim.id === claimId ? currentClaim : null
+
+  // Check if user can see edit information (admin or creator)
+  const isAdmin = currentUser && (currentUser.role?.toUpperCase() === 'ADMIN' || currentUser.role?.toUpperCase() === 'MODERATOR')
+  const isCreator = currentUser && claim && claim.userId === currentUser.id
+  const canSeeEditInfo = isAdmin || isCreator
+
+  // Fetch editor user information
+  useEffect(() => {
+    const fetchEditors = async () => {
+      if (!claim || !canSeeEditInfo) {
+        setTitleEditor(null)
+        setDescriptionEditor(null)
+        return
+      }
+
+      // Fetch title editor
+      if (claim.titleEdited && claim.titleEditedBy) {
+        try {
+          const response = await fetch(`/api/users/${claim.titleEditedBy}`, {
+            credentials: 'include',
+          })
+          if (response.ok) {
+            const data = await response.json()
+            if (data.success && data.user) {
+              setTitleEditor({ username: data.user.username })
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching title editor:', err)
+        }
+      }
+
+      // Fetch description editor
+      if (claim.descriptionEdited && claim.descriptionEditedBy) {
+        try {
+          const response = await fetch(`/api/users/${claim.descriptionEditedBy}`, {
+            credentials: 'include',
+          })
+          if (response.ok) {
+            const data = await response.json()
+            if (data.success && data.user) {
+              setDescriptionEditor({ username: data.user.username })
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching description editor:', err)
+        }
+      }
+    }
+
+    fetchEditors()
+  }, [claim, canSeeEditInfo])
 
   // Use hooks for claim vote and follow
   const claimVote = useVote({
@@ -380,6 +436,97 @@ export default function ClaimDetailPage() {
                       <span className="mx-2 text-gray-400 dark:text-gray-500">/</span>
                       <span className="font-medium text-red-600 dark:text-red-400">{claim.downvotes || 0} Downvotes</span>
                     </span>
+                  </div>
+                )}
+                
+                {/* Edit Information */}
+                {canSeeEditInfo && (claim?.titleEdited || claim?.descriptionEdited) && (
+                  <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    {/* <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                      Edit Information
+                    </h3> */}
+                    <div className="space-y-4">
+                      {/* Title Edit Info */}
+                      {claim.titleEdited && (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                            This claim title was edited{' '}
+                            {claim.titleEditedAt && (
+                              <>
+                                at{' '}
+                                <span className="font-medium">
+                                  {new Date(claim.titleEditedAt).toLocaleString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                              </>
+                            )}
+                            {titleEditor && (
+                              <>
+                                {' '}by{' '}
+                                <span className="font-medium">@{titleEditor.username}</span>
+                              </>
+                            )}
+                            {claim.titleEditReason && (
+                              <>
+                                {' '}for the following reason: <span className="font-medium">&quot;{claim.titleEditReason}&quot;.</span>
+                              </>
+                            )}
+                            {claim.originalTitle && (
+                              <>
+                              <br />
+                                Original title was: <span className="font-medium italic text-blue-700">&quot;{claim.originalTitle}&quot;</span>
+                              </>
+                            )}
+                            .
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Description Edit Info */}
+                      {claim.descriptionEdited && (
+                        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                            This claim description was edited{' '}
+                            {claim.descriptionEditedAt && (
+                              <>
+                                at{' '}
+                                <span className="font-medium">
+                                  {new Date(claim.descriptionEditedAt).toLocaleString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                              </>
+                            )}
+                            {descriptionEditor && (
+                              <>
+                                {' '}by{' '}
+                                <span className="font-medium">@{descriptionEditor.username}</span>
+                              </>
+                            )}
+                            {claim.descriptionEditReason && (
+                              <>
+                                {' '}for the following reason: <span className="font-medium text-purple-700 dark:text-purple-300">&quot;{claim.descriptionEditReason}&quot;</span>
+                              </>
+                            )}
+                            {claim.originalDescription && (
+                              <>
+                                . Original description was: <span className="font-medium italic">&quot;{claim.originalDescription}&quot;</span>
+                              </>
+                            )}
+                            .
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

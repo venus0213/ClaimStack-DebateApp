@@ -18,7 +18,7 @@ export interface Claim {
   title: string
   description?: string
   categoryId?: string
-  status: 'pending' | 'approved' | 'rejected' | 'flagged'
+  status: 'pending' | 'approved' | 'rejected' | 'flagged' | 'closed'
   forSummary?: string
   againstSummary?: string
   summaryUpdatedAt?: Date
@@ -33,6 +33,20 @@ export interface Claim {
   fileName?: string
   fileSize?: number
   fileType?: string
+  seoTitle?: string
+  seoDescription?: string
+  // Title editing fields
+  originalTitle?: string
+  titleEdited?: boolean
+  titleEditedBy?: string
+  titleEditedAt?: Date
+  titleEditReason?: string
+  // Description editing fields
+  originalDescription?: string
+  descriptionEdited?: boolean
+  descriptionEditedBy?: string
+  descriptionEditedAt?: Date
+  descriptionEditReason?: string
   createdAt: Date
   updatedAt: Date
   user?: User
@@ -58,7 +72,7 @@ export interface Evidence {
   fileSize?: number
   fileType?: string
   metadata?: Record<string, any>
-  status: 'pending' | 'approved' | 'rejected' | 'flagged'
+  status: 'pending' | 'approved' | 'rejected' | 'flagged' | 'closed'
   upvotes: number
   downvotes: number
   score: number
@@ -116,7 +130,7 @@ export interface Perspective {
   fileSize?: number
   fileType?: string
   metadata?: Record<string, any>
-  status: 'pending' | 'approved' | 'rejected' | 'flagged'
+  status: 'pending' | 'approved' | 'rejected' | 'flagged' | 'closed'
   upvotes: number
   downvotes: number
   score: number

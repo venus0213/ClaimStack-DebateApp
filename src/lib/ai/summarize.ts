@@ -448,3 +448,160 @@ Generate a clear, concise summary (2-3 sentences) that:
 Summary:
   `.trim()
 }
+
+export interface SEOMetadataOptions {
+  claimTitle: string
+  claimCategory?: string
+  leadingSide?: 'for' | 'against' | null
+}
+
+export interface SEOMetadataResult {
+  seoTitle: string
+  seoDescription: string
+}
+
+/**
+ * Generate SEO metadata for a claim
+ */
+export async function generateSEOMetadata(
+  options: SEOMetadataOptions
+): Promise<SEOMetadataResult> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    // Fallback generation without AI
+    return generateSEOMetadataFallback(options)
+  }
+
+  const openai = new OpenAI({ apiKey })
+
+  try {
+    const prompt = buildSEOPrompt(options)
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert at creating SEO-optimized titles and descriptions. Generate clear, factual, and engaging metadata that accurately represents the content.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.7,
+      response_format: { type: 'json_object' },
+    })
+
+    const content = response.choices[0]?.message?.content?.trim() || ''
+    
+    try {
+      const parsed = JSON.parse(content)
+      const seoTitle = parsed.seo_title || ''
+      const seoDescription = parsed.seo_description || ''
+      
+      // Validate and ensure title ends with " | ClaimStack"
+      const finalTitle = seoTitle.endsWith(' | ClaimStack') 
+        ? seoTitle 
+        : `${seoTitle} | ClaimStack`
+      
+      // Ensure title is around 60 characters (adjust if needed)
+      const adjustedTitle = finalTitle.length > 70 
+        ? finalTitle.substring(0, 60).trim() + ' | ClaimStack'
+        : finalTitle
+      
+      // Ensure description is 150-160 characters
+      const adjustedDescription = seoDescription.length > 160
+        ? seoDescription.substring(0, 157).trim() + '...'
+        : seoDescription.length < 150
+        ? seoDescription + ' ' + 'Explore evidence and perspectives on this claim.'.substring(0, 160 - seoDescription.length - 1)
+        : seoDescription
+
+      return {
+        seoTitle: adjustedTitle,
+        seoDescription: adjustedDescription.substring(0, 160),
+      }
+    } catch (parseError) {
+      console.error('Error parsing SEO metadata JSON:', parseError)
+      return generateSEOMetadataFallback(options)
+    }
+  } catch (error: any) {
+    const isCountryRestriction = error?.status === 403 && 
+      (error?.code === 'unsupported_country_region_territory' || 
+       error?.error?.code === 'unsupported_country_region_territory')
+    
+    if (isCountryRestriction) {
+      console.warn('OpenAI API not available in this region. Using fallback SEO generation.')
+      return generateSEOMetadataFallback(options)
+    }
+    
+    console.error('Error generating SEO metadata:', error?.message || error)
+    return generateSEOMetadataFallback(options)
+  }
+}
+
+function buildSEOPrompt(options: SEOMetadataOptions): string {
+  const leadingSidePrefix = options.leadingSide === 'for' 
+    ? 'Arguments for ' 
+    : options.leadingSide === 'against' 
+    ? 'Arguments against ' 
+    : ''
+
+  return `
+Generate SEO metadata for a claim with the following information:
+
+Inputs:
+- Claim Title: ${options.claimTitle}
+- Category: ${options.claimCategory || 'Not specified'}
+- Leading Side: ${options.leadingSide || 'null'}
+
+Rules for seo_title:
+- Aim for ~60 characters if possible.
+- Always end with " | ClaimStack".
+- If Leading Side is provided, prefix the title with:
+    - "Arguments for " (if leadingSide is "for")
+    - "Arguments against " (if leadingSide is "against")
+- Keep the core claim meaning intact.
+
+Rules for seo_description:
+- 150–160 characters.
+- Describe that users can view evidence for and against the claim.
+- Mention community-ranked sources and AI summaries.
+- Neutral, clear, factual.
+
+Return a JSON object with this exact format:
+{
+  "seo_title": "...",
+  "seo_description": "..."
+}
+  `.trim()
+}
+
+function generateSEOMetadataFallback(options: SEOMetadataOptions): SEOMetadataResult {
+  const leadingSidePrefix = options.leadingSide === 'for' 
+    ? 'Arguments for ' 
+    : options.leadingSide === 'against' 
+    ? 'Arguments against ' 
+    : ''
+
+  // Generate title
+  let titleBase = options.claimTitle
+  if (titleBase.length > 40) {
+    titleBase = titleBase.substring(0, 40).trim() + '...'
+  }
+  
+  const titleWithPrefix = leadingSidePrefix + titleBase
+  const seoTitle = titleWithPrefix.length > 40
+    ? titleWithPrefix.substring(0, 40).trim() + ' | ClaimStack'
+    : titleWithPrefix + ' | ClaimStack'
+
+  // Generate description
+  const categoryText = options.claimCategory ? ` in ${options.claimCategory}` : ''
+  const seoDescription = `Explore evidence for and against "${options.claimTitle}"${categoryText}. View community-ranked sources and AI summaries to understand different perspectives on this claim.`.substring(0, 160)
+
+  return {
+    seoTitle,
+    seoDescription,
+  }
+}

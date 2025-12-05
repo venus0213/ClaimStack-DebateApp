@@ -6,11 +6,9 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Dropdown } from '@/components/ui/Dropdown'
-import { CheckmarkIcon } from '@/components/ui/Icons'
-import { useClaimsStore } from '@/store/claimsStore'
 import { Claim } from '@/lib/types'
 
-interface ApproveModalProps {
+interface EditClaimModalProps {
   isOpen: boolean
   onClose: () => void
   onConfirm: () => void
@@ -28,14 +26,13 @@ const EDIT_REASON_OPTIONS = [
   { value: 'other', label: 'Other' },
 ]
 
-export const ApproveModal: React.FC<ApproveModalProps> = ({
+export const EditClaimModal: React.FC<EditClaimModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
   claimId,
   claim: initialClaim,
 }) => {
-  const { approveClaim, currentClaim } = useClaimsStore()
   const [isProcessing, setIsProcessing] = useState(false)
   const [claim, setClaim] = useState<Claim | null>(initialClaim || null)
   const [isLoadingClaim, setIsLoadingClaim] = useState(false)
@@ -43,8 +40,6 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
   // Editable fields
   const [editedTitle, setEditedTitle] = useState('')
   const [editedDescription, setEditedDescription] = useState('')
-  const [editedSeoTitle, setEditedSeoTitle] = useState('')
-  const [editedSeoDescription, setEditedSeoDescription] = useState('')
   
   // Edit reason
   const [editReasonType, setEditReasonType] = useState('')
@@ -55,7 +50,9 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
   useEffect(() => {
     if (isOpen && claimId && !initialClaim) {
       setIsLoadingClaim(true)
-      fetch(`/api/claims/${claimId}`)
+      fetch(`/api/claims/${claimId}`, {
+        credentials: 'include',
+      })
         .then(res => res.json())
         .then(data => {
           if (data.success && data.claim) {
@@ -68,18 +65,14 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
         })
     } else if (isOpen && initialClaim) {
       setClaim(initialClaim)
-    } else if (isOpen && claimId && currentClaim && currentClaim.id === claimId) {
-      setClaim(currentClaim)
     }
-  }, [isOpen, claimId, initialClaim, currentClaim])
+  }, [isOpen, claimId, initialClaim])
 
   // Initialize form fields when claim is loaded
   useEffect(() => {
     if (claim) {
       setEditedTitle(claim.title || '')
       setEditedDescription(claim.description || '')
-      setEditedSeoTitle(claim.seoTitle || '')
-      setEditedSeoDescription(claim.seoDescription || '')
       setEditReasonType('')
       setEditReasonText('')
       setEditReasonError('')
@@ -102,6 +95,7 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
       }
     }
     if (!editedTitle.trim()) {
+      setEditReasonError('Title is required')
       return false
     }
     setEditReasonError('')
@@ -124,26 +118,39 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
         ? editReasonText.trim() 
         : EDIT_REASON_OPTIONS.find(opt => opt.value === editReasonType)?.label || editReasonText.trim()
 
-      const result = await approveClaim(claimId || claim?.id || '', {
-        title: hasTitleChanged ? editedTitle : undefined,
-        description: hasDescriptionChanged ? editedDescription : undefined,
-        seoTitle: editedSeoTitle !== claim?.seoTitle ? editedSeoTitle : undefined,
-        seoDescription: editedSeoDescription !== claim?.seoDescription ? editedSeoDescription : undefined,
-        titleEditReason: hasTitleChanged ? editReason : undefined,
-        // titleEditReasonText: hasTitleChanged ? editReasonText.trim() : undefined,
-        // descriptionEditReason: hasDescriptionChanged ? editReason : undefined,
-        // descriptionEditReasonText: hasDescriptionChanged ? editReasonText.trim() : undefined,
-      })
-      
-      if (result.success) {
-        onConfirm()
-      } else {
-        console.error('Failed to approve claim:', result.error)
-        setEditReasonError(result.error || 'Failed to approve claim')
+      const body: any = {
+        status: claim?.status || 'approved', // Keep current status
       }
+
+      // Include edits if provided
+      if (hasTitleChanged) {
+        body.title = editedTitle
+        body.titleEditReason = editReason
+      }
+      if (hasDescriptionChanged) {
+        body.description = editedDescription
+        body.descriptionEditReason = editReason
+      }
+
+      const response = await fetch(`/api/claims/${claimId || claim?.id || ''}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update claim')
+      }
+
+      onConfirm()
     } catch (error) {
-      console.error('Error approving claim:', error)
-      setEditReasonError('An error occurred while approving the claim')
+      console.error('Error updating claim:', error)
+      setEditReasonError(error instanceof Error ? error.message : 'An error occurred while updating the claim')
     } finally {
       setIsProcessing(false)
     }
@@ -159,13 +166,6 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
       hour: '2-digit',
       minute: '2-digit',
     })
-  }
-
-  const formatFileSize = (bytes: number | undefined): string => {
-    if (!bytes) return 'N/A'
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
   }
 
   if (isLoadingClaim) {
@@ -202,78 +202,55 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      size="xl2"
+      size="lg"
       showCloseButton={false}
     >
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col font-semibold text-2xl items-center justify-center py-2">
-          <span className="text-gray-900 dark:text-gray-100">Are You Sure You Want To</span>
-          <div className="text-blue-600 dark:text-blue-400 font-semibold">Approve This Content?</div>
+          <span className="text-gray-900 dark:text-gray-100">Edit Claim</span>
         </div>
 
         {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Side: Claim Title and Description */}
-          <div className="space-y-4">
+        <div className="grid grid-cols-1">
+          {/* Left Side: Claim Title */}
+          <div className="space-y-4 mb-10">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Claim Content (Will be posted)
+              Title
             </h3>
             
             <div className="space-y-3">
               <Input
-                label="Title"
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
                 placeholder="Enter claim title"
                 maxLength={500}
                 error={!editedTitle.trim() ? 'Title is required' : undefined}
               />
-              
+            </div>
+          </div>
+
+          {/* Right Side: Description */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Description
+            </h3>
+            
+            <div className="space-y-3">
               <Textarea
-                label="Description"
                 value={editedDescription}
                 onChange={(e) => setEditedDescription(e.target.value)}
                 placeholder="Enter claim description"
                 rows={6}
-                maxLength={5000}
+                // maxLength={5000}
                 showCharCount
-              />
-            </div>
-          </div>
-
-          {/* Right Side: SEO Info */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              SEO Information
-            </h3>
-            
-            <div className="space-y-3">
-              <Input
-                label="SEO Title"
-                value={editedSeoTitle}
-                onChange={(e) => setEditedSeoTitle(e.target.value)}
-                placeholder="Enter SEO title (optional)"
-                maxLength={60}
-                helperText="Recommended: 50-60 characters"
-              />
-              
-              <Textarea
-                label="SEO Description"
-                value={editedSeoDescription}
-                onChange={(e) => setEditedSeoDescription(e.target.value)}
-                placeholder="Enter SEO description (optional)"
-                rows={4}
-                maxLength={160}
-                showCharCount
-                helperText="Recommended: 150-160 characters"
               />
             </div>
           </div>
         </div>
 
         {/* Edit Reason Section */}
-        {(hasTitleChanged || hasDescriptionChanged) && (
+        {requiresEditReason && (
           <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Edit Reason <span className="text-red-500">*</span>
@@ -312,9 +289,9 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
 
         {/* Other Info Section */}
         <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          {/* <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Other Information
-          </h3>
+          </h3> */}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
@@ -330,38 +307,6 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
                 {formatDate(claim.createdAt)}
               </span>
             </div>
-            
-            {claim.fileName && (
-              <div>
-                <span className="text-gray-600 dark:text-gray-400">Media:</span>
-                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">
-                  {claim.fileName} ({formatFileSize(claim.fileSize)})
-                </span>
-              </div>
-            )}
-            
-            {claim.url && (
-              <div>
-                <span className="text-gray-600 dark:text-gray-400">Source URL:</span>
-                <a 
-                  href={claim.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="ml-2 font-medium text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  {claim.url.length > 40 ? `${claim.url.substring(0, 40)}...` : claim.url}
-                </a>
-              </div>
-            )}
-            
-            {claim.category && (
-              <div>
-                <span className="text-gray-600 dark:text-gray-400">Category:</span>
-                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">
-                  {claim.category.name}
-                </span>
-              </div>
-            )}
             
             <div>
               <span className="text-gray-600 dark:text-gray-400">Status:</span>
@@ -379,8 +324,9 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
             onClick={handleConfirm} 
             className='rounded-full'
             disabled={isProcessing || !editedTitle.trim()}
+            isLoading={isProcessing}
           >
-            {isProcessing ? 'Processing...' : 'Approve and Publish'}
+            {isProcessing ? 'Saving...' : 'Save Changes'}
           </Button>
           <Button 
             variant="outline" 
@@ -395,3 +341,4 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
     </Modal>
   )
 }
+

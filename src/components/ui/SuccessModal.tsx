@@ -23,17 +23,17 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
   const defaultTitle = type === 'claim' 
     ? 'Claim Submitted Successfully!' 
     : type === 'evidence'
-    ? 'Evidence Submitted'
+    ? 'Evidence Submitted!'
     : type === 'perspective'
-    ? 'Perspective Submitted'
+    ? 'Perspective Submitted!'
     : ''
   
   const defaultSubtitle = type === 'claim'
-    ? 'Your claim has been posted and is now visible to others.'
+    ? ' It will be reviewed by our team and published shortly.'
     : type === 'evidence'
-    ? 'Evidence as Pending Moderation'
+    ? 'Your evidence has been submitted and is now visible to others.'
     : type === 'perspective'
-    ? 'Perspective as Pending Moderation'
+    ? 'Your perspective has been submitted and is now visible to others.'
     : ''
 
   return (
@@ -65,7 +65,7 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
           </h2>
 
           {/* Subtitle */}
-          <p className="text-sm font-normal text-gray-600 dark:text-gray-400">
+          <p className="text-lg font-normal text-gray-600 dark:text-gray-400">
             {subtitle || defaultSubtitle}
           </p>
         </div>

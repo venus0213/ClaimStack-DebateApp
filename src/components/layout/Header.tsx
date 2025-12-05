@@ -21,6 +21,7 @@ export const Header: React.FC = () => {
   const isBrowseActive = pathname?.startsWith('/browse')
   const isModerationActive = pathname?.startsWith('/moderation')
   const isUserManagementActive = pathname?.startsWith('/admin/users')
+  const isContentManagementActive = pathname?.startsWith('/admin/content')
   const avatarUrl = user?.avatarUrl || '/icons/user.png'
   
   // Check if user is ADMIN or MODERATOR (can see admin features)
@@ -81,6 +82,18 @@ export const Header: React.FC = () => {
                     }`}
                   >
                     User Management Panel
+                  </Link>
+                )}
+                {isAdmin && (
+                  <Link
+                    href="/admin/content"
+                    className={`px-3 lg:px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      isContentManagementActive
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                    }`}
+                  >
+                    Content Management
                   </Link>
                 )}
               </nav>
@@ -174,6 +187,19 @@ export const Header: React.FC = () => {
                       }`}
                     >
                       User Management Panel
+                    </Link>
+                  )}
+                  {isAdmin && (
+                    <Link
+                      href="/admin/content"
+                      onClick={() => setIsMenuOpen(false)}
+                      className={`px-4 py-2 rounded-lg text-base font-medium transition-colors ${
+                        isContentManagementActive
+                          ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                      }`}
+                    >
+                      Content Management
                     </Link>
                   )}
                 </>

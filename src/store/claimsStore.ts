@@ -37,7 +37,13 @@ interface ClaimsState {
   fetchApprovedClaims: (options?: { refresh?: boolean }) => Promise<void>
   fetchRejectedClaims: (options?: { refresh?: boolean }) => Promise<void>
   fetchClaim: (id: string) => Promise<void>
-  approveClaim: (id: string) => Promise<{ success: boolean; error?: string }>
+  approveClaim: (id: string, edits?: {
+    title?: string
+    description?: string
+    seoTitle?: string
+    seoDescription?: string
+    titleEditReason?: string
+  }) => Promise<{ success: boolean; error?: string }>
   rejectClaim: (id: string, reason?: string) => Promise<{ success: boolean; error?: string }>
   createClaim: (data: {
     title: string
@@ -301,18 +307,57 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
     }
   },
 
-  approveClaim: async (id: string) => {
+  approveClaim: async (id: string, edits?: {
+    title?: string
+    description?: string
+    seoTitle?: string
+    seoDescription?: string
+    titleEditReason?: string
+    titleEditReasonText?: string
+    descriptionEditReason?: string
+    descriptionEditReasonText?: string
+  }) => {
     try {
       set({ isLoading: true, error: null })
+
+      const body: any = {
+        status: 'approved',
+      }
+
+      // Include edits if provided
+      if (edits) {
+        if (edits.title !== undefined) {
+          body.title = edits.title
+        }
+        if (edits.description !== undefined) {
+          body.description = edits.description
+        }
+        if (edits.seoTitle !== undefined) {
+          body.seoTitle = edits.seoTitle
+        }
+        if (edits.seoDescription !== undefined) {
+          body.seoDescription = edits.seoDescription
+        }
+        if (edits.titleEditReason) {
+          body.titleEditReason = edits.titleEditReason
+        }
+        if (edits.titleEditReasonText) {
+          body.titleEditReasonText = edits.titleEditReasonText
+        }
+        if (edits.descriptionEditReason) {
+          body.descriptionEditReason = edits.descriptionEditReason
+        }
+        if (edits.descriptionEditReasonText) {
+          body.descriptionEditReasonText = edits.descriptionEditReasonText
+        }
+      }
 
       const response = await fetch(`/api/claims/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          status: 'approved',
-        }),
+        body: JSON.stringify(body),
       })
 
       const data = await response.json()
@@ -323,7 +368,12 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
 
       // Update claim in store
       if (data.claim) {
-        get().updateClaim(id, { status: 'approved' })
+        const updates: Partial<Claim> = { status: 'approved' }
+        if (edits?.title !== undefined) updates.title = edits.title
+        if (edits?.description !== undefined) updates.description = edits.description
+        if (edits?.seoTitle !== undefined) updates.seoTitle = edits.seoTitle
+        if (edits?.seoDescription !== undefined) updates.seoDescription = edits.seoDescription
+        get().updateClaim(id, updates)
       }
 
       set({ isLoading: false, error: null })

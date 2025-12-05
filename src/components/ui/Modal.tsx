@@ -11,7 +11,7 @@ export interface ModalProps {
   onClose: () => void
   title?: string | React.ReactNode
   children: React.ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl' |'xl2'
   showCloseButton?: boolean
   footer?: React.ReactNode
 }
@@ -53,6 +53,7 @@ export const Modal: React.FC<ModalProps> = ({
     md: 'max-w-lg',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
+    xl2: 'max-w-5xl',
   }
 
   const modalContent = (
@@ -67,7 +68,7 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         className={cn(
           'bg-white dark:bg-gray-800 rounded-2xl sm:rounded-[32px] shadow-xl w-full',
-          sizes[size],
+          sizes[size as keyof typeof sizes],
           'max-h-[95vh] sm:max-h-[90vh] overflow-y-auto'
         )}
         onClick={(e) => e.stopPropagation()}

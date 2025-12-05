@@ -9,12 +9,14 @@ import { ChevronLeftIcon, EditIcon, LogoutIcon, SunIcon, MoonIcon } from '@/comp
 import { useAuth } from '@/hooks/useAuth'
 import { ProfileEditModal } from '@/components/profile/ProfileEditModal'
 import { useTheme } from '@/components/providers/ThemeProvider'
+import { UserListModal } from '@/components/users/UserListModal'
+import { EditClaimModal } from '@/components/claims/EditClaimModal'
 
 const profileButtons = [
-  { id: 'saved', label: 'Saved' },
-  { id: 'claims', label: 'Claims' },
-  { id: 'evidence', label: 'Evidence' },
-  { id: 'following', label: 'Following' },
+  // { id: 'saved', label: 'Saved' },
+  { id: 'claims', label: 'My Claims' },
+  { id: 'evidence', label: 'My Evidence & Perspective' },
+  { id: 'following', label: 'My Recommended' },
 ]
 
 export default function ProfilePage() {
@@ -22,13 +24,21 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('claims')
   const { user, loading: authLoading, logout: logoutUser, checkSession } = useAuth()
   const { theme, toggleTheme } = useTheme()
-  const [allPosts, setAllPosts] = useState<(Claim | Evidence | Perspective)[]>([])
+  const [claims, setClaims] = useState<Claim[]>([])
+  const [evidenceAndPerspectives, setEvidenceAndPerspectives] = useState<(Evidence | Perspective)[]>([])
+  const [upvotedClaims, setUpvotedClaims] = useState<Claim[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [followersCount, setFollowersCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
+  const [isFollowersModalOpen, setIsFollowersModalOpen] = useState(false)
+  const [isFollowingModalOpen, setIsFollowingModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [claimToEdit, setClaimToEdit] = useState<Claim | null>(null)
 
-  // Fetch user's posts (claims, evidence, perspectives)
-  const fetchAllPosts = async () => {
+  // Fetch user's claims (all statuses: pending, rejected, approved)
+  const fetchUserClaims = async () => {
     if (!user?.id) {
       setLoading(false)
       return
@@ -38,7 +48,7 @@ export default function ProfilePage() {
       setLoading(true)
       setError(null)
       
-      // Fetch claims
+      // Fetch all claims for the user (no status filter to get pending, rejected, and approved)
       const claimsParams = new URLSearchParams({
         userId: user.id,
         sortBy: 'newest',
@@ -47,6 +57,41 @@ export default function ProfilePage() {
       const claimsResponse = await fetch(`/api/claims?${claimsParams.toString()}`, {
         credentials: 'include',
       })
+
+      if (claimsResponse.ok) {
+        const claimsData = await claimsResponse.json()
+        if (claimsData.success && claimsData.claims) {
+          // Sort by creation date (most recent first)
+          const sortedClaims = [...claimsData.claims].sort((a, b) => {
+            const dateA = new Date(a.createdAt).getTime()
+            const dateB = new Date(b.createdAt).getTime()
+            return dateB - dateA
+          })
+          setClaims(sortedClaims)
+        } else {
+          setClaims([])
+        }
+      } else {
+        throw new Error('Failed to fetch claims')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      setClaims([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch user's evidence and perspectives (all statuses: pending, rejected, approved)
+  const fetchUserEvidenceAndPerspectives = async () => {
+    if (!user?.id) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
       
       // Fetch evidence
       const evidenceParams = new URLSearchParams({
@@ -64,21 +109,13 @@ export default function ProfilePage() {
         credentials: 'include',
       })
 
-      const allPostsArray: (Claim | Evidence | Perspective)[] = []
-
-      // Process claims
-      if (claimsResponse.ok) {
-        const claimsData = await claimsResponse.json()
-        if (claimsData.success && claimsData.claims) {
-          allPostsArray.push(...claimsData.claims)
-        }
-      }
+      const allItems: (Evidence | Perspective)[] = []
 
       // Process evidence
       if (evidenceResponse.ok) {
         const evidenceData = await evidenceResponse.json()
         if (evidenceData.success && evidenceData.evidence) {
-          allPostsArray.push(...evidenceData.evidence)
+          allItems.push(...evidenceData.evidence)
         }
       }
 
@@ -86,28 +123,116 @@ export default function ProfilePage() {
       if (perspectivesResponse.ok) {
         const perspectivesData = await perspectivesResponse.json()
         if (perspectivesData.success && perspectivesData.perspectives) {
-          allPostsArray.push(...perspectivesData.perspectives)
+          allItems.push(...perspectivesData.perspectives)
         }
       }
 
       // Sort by creation date (most recent first)
-      allPostsArray.sort((a, b) => {
+      allItems.sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime()
         const dateB = new Date(b.createdAt).getTime()
         return dateB - dateA
       })
 
-      setAllPosts(allPostsArray)
+      setEvidenceAndPerspectives(allItems)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
-      setAllPosts([])
+      setEvidenceAndPerspectives([])
     } finally {
       setLoading(false)
     }
   }
 
+  // Fetch claims that the user has upvoted (from other users)
+  const fetchUpvotedClaims = async () => {
+    if (!user?.id) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Fetch claims upvoted by the current user (excluding their own claims)
+      const claimsParams = new URLSearchParams({
+        upvotedBy: 'me',
+        sortBy: 'newest',
+        limit: '100',
+      })
+      const claimsResponse = await fetch(`/api/claims?${claimsParams.toString()}`, {
+        credentials: 'include',
+      })
+
+      if (claimsResponse.ok) {
+        const claimsData = await claimsResponse.json()
+        if (claimsData.success && claimsData.claims) {
+          // Sort by creation date (most recent first)
+          const sortedClaims = [...claimsData.claims].sort((a, b) => {
+            const dateA = new Date(a.createdAt).getTime()
+            const dateB = new Date(b.createdAt).getTime()
+            return dateB - dateA
+          })
+          setUpvotedClaims(sortedClaims)
+        } else {
+          setUpvotedClaims([])
+        }
+      } else {
+        throw new Error('Failed to fetch upvoted claims')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      setUpvotedClaims([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch follower and following counts
+  const fetchFollowCounts = async () => {
+    if (!user?.id) return
+
+    try {
+      // Fetch followers count (countOnly query parameter for efficiency)
+      const followersResponse = await fetch(`/api/users/${user.id}/followers?countOnly=true`, {
+        credentials: 'include',
+      })
+      if (followersResponse.ok) {
+        const followersData = await followersResponse.json()
+        if (followersData.success) {
+          setFollowersCount(followersData.count || 0)
+        }
+      }
+
+      // Fetch following count (countOnly query parameter for efficiency)
+      const followingResponse = await fetch(`/api/users/${user.id}/following?countOnly=true`, {
+        credentials: 'include',
+      })
+      if (followingResponse.ok) {
+        const followingData = await followingResponse.json()
+        if (followingData.success) {
+          setFollowingCount(followingData.count || 0)
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching follow counts:', err)
+    }
+  }
+
   useEffect(() => {
-    fetchAllPosts()
+    if (activeTab === 'claims') {
+      fetchUserClaims()
+    } else if (activeTab === 'evidence') {
+      fetchUserEvidenceAndPerspectives()
+    } else if (activeTab === 'following') {
+      fetchUpvotedClaims()
+    }
+  }, [user?.id, activeTab])
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchFollowCounts()
+    }
   }, [user?.id])
 
   const logout = async () => {
@@ -223,6 +348,31 @@ export default function ProfilePage() {
               {user.bio && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{user.bio}</p>
               )}
+              {/* Follower and Following counts */}
+              <div className="flex items-center gap-4 sm:gap-6 mt-3">
+                <button
+                  onClick={() => setIsFollowersModalOpen(true)}
+                  className="flex items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer"
+                >
+                  <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">
+                    {followersCount}
+                  </span>
+                  <span className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+                    {followersCount === 1 ? 'follower' : 'followers'}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setIsFollowingModalOpen(true)}
+                  className="flex items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer"
+                >
+                  <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">
+                    {followingCount}
+                  </span>
+                  <span className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+                    following
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 sm:gap-4">
@@ -247,16 +397,16 @@ export default function ProfilePage() {
           <>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="text-gray-600 dark:text-gray-400">Loading posts...</div>
+                <div className="text-gray-600 dark:text-gray-400">Loading claims...</div>
               </div>
             ) : error ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-red-600 dark:text-red-400">Error: {error}</div>
               </div>
-            ) : allPosts.length === 0 ? (
+            ) : claims.length === 0 ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">No posts yet</p>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">No claims yet</p>
                   <Link
                     href="/create"
                     className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
@@ -267,35 +417,14 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="mt-6 sm:mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                {allPosts.map((post) => (
+                {claims.map((claim) => (
                   <ContentCard 
-                    key={post.id} 
-                    item={post} 
-                    showDelete={true}
-                    onDelete={async (itemId: string, itemType: 'claim' | 'evidence' | 'perspective') => {
-                      try {
-                        const endpoint = itemType === 'claim' 
-                          ? `/api/claims/${itemId}`
-                          : itemType === 'evidence'
-                          ? `/api/evidence/${itemId}`
-                          : `/api/perspectives/${itemId}`
-                        
-                        const response = await fetch(endpoint, {
-                          method: 'DELETE',
-                          credentials: 'include',
-                        })
-
-                        if (!response.ok) {
-                          const data = await response.json()
-                          throw new Error(data.error || 'Failed to delete')
-                        }
-
-                        // Refresh the list to show updated data
-                        await fetchAllPosts()
-                      } catch (err) {
-                        console.error('Delete error:', err)
-                        alert(err instanceof Error ? err.message : 'Failed to delete post')
-                      }
+                    key={claim.id}
+                    item={claim} 
+                    showEdit={true}
+                    onEdit={(itemId: string) => {
+                      setClaimToEdit(claim)
+                      setEditModalOpen(true)
                     }}
                   />
                 ))}
@@ -304,11 +433,104 @@ export default function ProfilePage() {
           </>
         )}
 
-        {/* Placeholder for other tabs */}
-        {activeTab !== 'claims' && (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-gray-600 dark:text-gray-400">Coming soon: {profileButtons.find(b => b.id === activeTab)?.label}</div>
-          </div>
+        {/* Evidence and Perspective tab */}
+        {activeTab === 'evidence' && (
+          <>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-gray-600 dark:text-gray-400">Loading evidence and perspectives...</div>
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-red-600 dark:text-red-400">Error: {error}</div>
+              </div>
+            ) : evidenceAndPerspectives.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">No evidence or perspectives yet</p>
+                  <Link
+                    href="/browse"
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
+                  >
+                    Browse claims to add evidence or perspectives
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 sm:mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                {evidenceAndPerspectives.map((item) => {
+                  const isEvidence = 'type' in item
+                  return (
+                    <ContentCard 
+                      key={item.id} 
+                      item={item} 
+                      showDelete={true}
+                      onDelete={async (itemId: string, itemType: 'claim' | 'evidence' | 'perspective') => {
+                        try {
+                          const endpoint = isEvidence 
+                            ? `/api/evidence/${itemId}`
+                            : `/api/perspectives/${itemId}`
+                          
+                          const response = await fetch(endpoint, {
+                            method: 'DELETE',
+                            credentials: 'include',
+                          })
+
+                          if (!response.ok) {
+                            const data = await response.json()
+                            throw new Error(data.error || 'Failed to delete')
+                          }
+
+                          // Refresh the list to show updated data
+                          await fetchUserEvidenceAndPerspectives()
+                        } catch (err) {
+                          console.error('Delete error:', err)
+                          alert(err instanceof Error ? err.message : 'Failed to delete')
+                        }
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Following tab - shows claims from other users that the current user has upvoted */}
+        {activeTab === 'following' && (
+          <>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-gray-600 dark:text-gray-400">Loading upvoted claims...</div>
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-red-600 dark:text-red-400">Error: {error}</div>
+              </div>
+            ) : upvotedClaims.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">No upvoted claims yet</p>
+                  <Link
+                    href="/browse"
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
+                  >
+                    Browse claims to upvote
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 sm:mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                {upvotedClaims.map((claim) => (
+                  <ContentCard 
+                    key={claim.id} 
+                    item={claim} 
+                    showDelete={false}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -319,6 +541,47 @@ export default function ProfilePage() {
           onClose={() => setIsEditModalOpen(false)}
           user={user}
           onUpdate={handleProfileUpdate}
+        />
+      )}
+
+      {/* Followers Modal */}
+      {user && (
+        <UserListModal
+          isOpen={isFollowersModalOpen}
+          onClose={() => setIsFollowersModalOpen(false)}
+          userId={user.id}
+          type="followers"
+          title="Followers"
+        />
+      )}
+
+      {/* Following Modal */}
+      {user && (
+        <UserListModal
+          isOpen={isFollowingModalOpen}
+          onClose={() => setIsFollowingModalOpen(false)}
+          userId={user.id}
+          type="following"
+          title="Following"
+        />
+      )}
+
+      {/* Edit Claim Modal */}
+      {claimToEdit && (
+        <EditClaimModal
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false)
+            setClaimToEdit(null)
+          }}
+          onConfirm={async () => {
+            // Refresh the list to show updated data
+            await fetchUserClaims()
+            setEditModalOpen(false)
+            setClaimToEdit(null)
+          }}
+          claimId={claimToEdit.id}
+          claim={claimToEdit}
         />
       )}
     </div>

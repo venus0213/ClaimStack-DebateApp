@@ -8,11 +8,12 @@ import type { Evidence as EvidenceType, Perspective as PerspectiveType } from '@
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { VoteButtons } from '@/components/voting/VoteButtons'
-import { ShareIcon, UserIcon, TrashIcon } from '@/components/ui/Icons'
+import { ShareIcon, UserIcon, TrashIcon, ClockIcon, FlagIcon, CheckIcon, EditIcon } from '@/components/ui/Icons'
 import { ProtectedLink } from '@/components/ui/ProtectedLink'
 import { Modal } from '@/components/ui/Modal'
 import { useVote } from '@/hooks/useVote'
 import { useFollow } from '@/hooks/useFollow'
+import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils/cn'
 
 interface ContentCardProps {
@@ -23,8 +24,10 @@ interface ContentCardProps {
   isFollowing?: boolean
   href?: string
   claimId?: string // For evidence/perspective to update claim score
-  showDelete?: boolean // Show delete button (for profile page)
+  showDelete?: boolean // Show delete button (for profile page - evidence/perspectives only)
   onDelete?: (itemId: string, itemType: 'claim' | 'evidence' | 'perspective') => void // Delete callback
+  showEdit?: boolean // Show edit button (for profile page - claims only)
+  onEdit?: (itemId: string) => void // Edit callback
 }
 
 // Type guard to check if item is Evidence
@@ -47,14 +50,24 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   claimId,
   showDelete = false,
   onDelete,
+  showEdit = false,
+  onEdit,
 }) => {
   const isEvidenceItem = isEvidence(item)
   const isPerspectiveItem = isPerspective(item)
   const isClaimItem = !isEvidenceItem && !isPerspectiveItem
+  const claimItem = isClaimItem ? (item as Claim) : null
   const title = item.title || ''
+  const displayTitle = isClaimItem && claimItem?.titleEdited 
+    ? `${title} (edited)`
+    : title
   const description = isPerspectiveItem ? item.body : (isEvidenceItem ? item.description : item.description)
+  const displayDescription = isClaimItem && claimItem?.descriptionEdited && description
+    ? `${description} (edited)`
+    : description
   const user = item.user
   const itemId = item.id
+  const { user: currentUser } = useAuth()
 
   // Determine item type for hooks
   const itemType = isClaimItem ? 'claim' : isEvidenceItem ? 'evidence' : 'perspective'
@@ -213,12 +226,51 @@ export const ContentCard: React.FC<ContentCardProps> = ({
       
       <div className="flex items-start justify-between mb-2 sm:mb-3">
         <div className="flex items-center space-x-2">
-          <span className="text-xs sm:text-sm text-[#030303] dark:text-gray-100 font-medium">@{user?.username || 'user'}</span>
+          {user?.id ? (
+            <Link 
+              href={currentUser?.id === user.id ? '/profile' : `/users/${user.id}`}
+              className="text-xs sm:text-sm text-[#030303] dark:text-gray-100 font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            >
+              @{user.username || 'user'}
+            </Link>
+          ) : (
+            <span className="text-xs sm:text-sm text-[#030303] dark:text-gray-100 font-medium">@{user?.username || 'user'}</span>
+          )}
         </div>
         <div className='flex items-center space-x-2'>
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${cardTypeColor}`}>
             {cardType}
           </span>
+          {/* Status badge only for claims */}
+          {isClaimItem && (item as Claim).status && (
+            <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1 ${
+              (item as Claim).status === 'approved' 
+                ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
+                : (item as Claim).status === 'rejected'
+                ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
+                : (item as Claim).status === 'pending'
+                ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            }`}>
+              {(item as Claim).status === 'approved' && <CheckIcon className="w-3 h-3" />}
+              {(item as Claim).status === 'rejected' && <FlagIcon className="w-3 h-3" />}
+              {(item as Claim).status === 'pending' && <ClockIcon className="w-3 h-3" />}
+              <span className="capitalize">{(item as Claim).status}</span>
+            </span>
+          )}
+          {showEdit && onEdit && (
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onEdit(itemId)
+              }}
+              className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors p-1"
+              title="Edit claim"
+            >
+              <EditIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+          )}
           {showDelete && onDelete && (
             <button
               onClick={(e) => {
@@ -238,16 +290,16 @@ export const ContentCard: React.FC<ContentCardProps> = ({
         </div>
       </div>
 
-      {title && (
+      {displayTitle && (
         titleHref ? (
           <ProtectedLink href={titleHref}>
             <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-2 leading-tight cursor-pointer">
-              {title}
+              {displayTitle}
             </h3>
           </ProtectedLink>
         ) : (
           <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-2 leading-tight">
-            {title}
+            {displayTitle}
           </h3>
         )
       )}
@@ -259,7 +311,7 @@ export const ContentCard: React.FC<ContentCardProps> = ({
               ref={descriptionRef}
               className={`text-gray-600 dark:text-gray-300 text-xs sm:text-sm font-normal leading-relaxed ${!isDescriptionExpanded ? 'line-clamp-2 pr-14' : ''}`}
             >
-              {description}
+              {displayDescription}
               {isDescriptionExpanded && (
                 <span className="ml-1">
                   <button

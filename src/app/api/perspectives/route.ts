@@ -64,17 +64,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Build query
-    const query: any = {
-      // Show both approved and pending perspectives
-      status: { $in: [PerspectiveStatus.APPROVED, PerspectiveStatus.PENDING] },
+    const query: any = {}
+
+    // If filtering by userId (user's own content), show all statuses
+    // Otherwise, only show approved and pending
+    if (userId) {
+      query.userId = new mongoose.Types.ObjectId(userId)
+      // Don't filter by status - show all statuses for user's own content
+    } else {
+      // Show both approved and pending perspectives for public viewing
+      query.status = { $in: [PerspectiveStatus.APPROVED, PerspectiveStatus.PENDING] }
     }
 
     if (claimId) {
       query.claimId = new mongoose.Types.ObjectId(claimId)
-    }
-
-    if (userId) {
-      query.userId = new mongoose.Types.ObjectId(userId)
     }
 
     if (position) {

@@ -55,12 +55,15 @@ export async function DELETE(
       )
     }
 
-    // Check if user owns the evidence
+    // Check if user owns the evidence or is an admin
+    const userRole = user.role?.toUpperCase()
+    const isAdmin = userRole === 'ADMIN'
+    
     const evidenceUserId = evidence.userId instanceof mongoose.Types.ObjectId
       ? evidence.userId.toString()
       : (evidence.userId as any)?._id?.toString() || (evidence.userId as any).toString()
     
-    if (evidenceUserId !== user.userId) {
+    if (evidenceUserId !== user.userId && !isAdmin) {
       return NextResponse.json(
         { 
           success: false,

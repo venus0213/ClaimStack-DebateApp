@@ -6,15 +6,26 @@ import { ClaimFollow, ClaimVote, VoteType } from '@/lib/db/models'
 import { ModerationLog, ModerationAction } from '@/lib/db/models'
 import { Evidence } from '@/lib/db/models'
 import { Perspective } from '@/lib/db/models'
+import { Vote } from '@/lib/db/models'
+import { PerspectiveVote } from '@/lib/db/models'
+import { EvidenceFollow } from '@/lib/db/models'
+import { PerspectiveFollow } from '@/lib/db/models'
 import { updateClaimScore } from '@/lib/utils/claimScore'
 import { deleteFile } from '@/lib/storage/upload'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
 const updateClaimStatusSchema = z.object({
-  status: z.enum(['pending', 'approved', 'rejected', 'flagged']),
+  status: z.enum(['pending', 'approved', 'rejected', 'flagged', 'closed']),
   reason: z.string().optional(),
   metadata: z.record(z.any()).optional(),
+  // Title and description editing fields
+  title: z.string().min(1).max(500).optional(),
+  description: z.string().max(5000).optional(),
+  seoTitle: z.string().max(60).optional(),
+  seoDescription: z.string().max(160).optional(),
+  titleEditReason: z.string().optional(),
+  descriptionEditReason: z.string().optional(),
 })
 
 export async function GET(
@@ -121,47 +132,69 @@ export async function GET(
           : (claim.categoryId as any)?._id?.toString() || (claim.categoryId as any).toString())
       : undefined
 
+    // Check if user is admin or creator (for title editing fields visibility)
+    const isAdmin = user && (user.role?.toUpperCase() === 'ADMIN' || user.role?.toUpperCase() === 'MODERATOR')
+    const isCreator = user && userId === user.userId
+
+    const claimResponse: any = {
+      id: claim._id.toString(),
+      userId,
+      title: claim.title,
+      description: claim.description,
+      categoryId: categoryIdString,
+      status: claim.status.toLowerCase() as 'pending' | 'approved' | 'rejected' | 'flagged',
+      forSummary: claim.forSummary,
+      againstSummary: claim.againstSummary,
+      summaryUpdatedAt: claim.summaryUpdatedAt,
+      viewCount: claim.viewCount,
+      followCount: claim.followCount || 0,
+      totalScore: claim.totalScore || 0,
+      upvotes: claim.upvotes || 0,
+      downvotes: claim.downvotes || 0,
+      url: claim.url,
+      fileUrl: claim.fileUrl,
+      fileName: claim.fileName,
+      fileSize: claim.fileSize,
+      fileType: claim.fileType,
+      seoTitle: claim.seoTitle,
+      seoDescription: claim.seoDescription,
+      createdAt: claim.createdAt,
+      updatedAt: claim.updatedAt,
+      user: claim.userId instanceof mongoose.Types.ObjectId ? undefined : {
+        id: (claim.userId as any)._id?.toString() || userId,
+        email: (claim.userId as any).email,
+        username: (claim.userId as any).username,
+        firstName: (claim.userId as any).firstName,
+        lastName: (claim.userId as any).lastName,
+        avatarUrl: (claim.userId as any).avatarUrl,
+        role: (claim.userId as any).role || 'user',
+        createdAt: (claim.userId as any).createdAt,
+      },
+      category: claim.categoryId && !(claim.categoryId instanceof mongoose.Types.ObjectId) ? {
+        id: (claim.categoryId as any)._id?.toString() || categoryIdString,
+        name: (claim.categoryId as any).name,
+        slug: (claim.categoryId as any).slug,
+        description: (claim.categoryId as any).description,
+      } : undefined,
+    }
+
+    // Include title and description editing fields only for admins and creators
+    if (isAdmin || isCreator) {
+      claimResponse.originalTitle = claim.originalTitle
+      claimResponse.titleEdited = claim.titleEdited || false
+      claimResponse.titleEditedBy = claim.titleEditedBy?.toString()
+      claimResponse.titleEditedAt = claim.titleEditedAt
+      claimResponse.titleEditReason = claim.titleEditReason
+      claimResponse.originalDescription = claim.originalDescription
+      claimResponse.descriptionEdited = claim.descriptionEdited || false
+      claimResponse.descriptionEditedBy = claim.descriptionEditedBy?.toString()
+      claimResponse.descriptionEditedAt = claim.descriptionEditedAt
+      claimResponse.descriptionEditReason = claim.descriptionEditReason
+    }
+
     return NextResponse.json({
       success: true,
-      claim: {
-        id: claim._id.toString(),
-        userId,
-        title: claim.title,
-        description: claim.description,
-        categoryId: categoryIdString,
-        status: claim.status.toLowerCase() as 'pending' | 'approved' | 'rejected' | 'flagged',
-        forSummary: claim.forSummary,
-        againstSummary: claim.againstSummary,
-        summaryUpdatedAt: claim.summaryUpdatedAt,
-        viewCount: claim.viewCount,
-        followCount: claim.followCount || 0,
-        totalScore: claim.totalScore || 0,
-        upvotes: claim.upvotes || 0,
-        downvotes: claim.downvotes || 0,
-        url: claim.url,
-        fileUrl: claim.fileUrl,
-        fileName: claim.fileName,
-        fileSize: claim.fileSize,
-        fileType: claim.fileType,
-        createdAt: claim.createdAt,
-        updatedAt: claim.updatedAt,
-        user: claim.userId instanceof mongoose.Types.ObjectId ? undefined : {
-          id: (claim.userId as any)._id?.toString() || userId,
-          email: (claim.userId as any).email,
-          username: (claim.userId as any).username,
-          firstName: (claim.userId as any).firstName,
-          lastName: (claim.userId as any).lastName,
-          avatarUrl: (claim.userId as any).avatarUrl,
-          role: (claim.userId as any).role || 'user',
-          createdAt: (claim.userId as any).createdAt,
-        },
-        category: claim.categoryId && !(claim.categoryId instanceof mongoose.Types.ObjectId) ? {
-          id: (claim.categoryId as any)._id?.toString() || categoryIdString,
-          name: (claim.categoryId as any).name,
-          slug: (claim.categoryId as any).slug,
-          description: (claim.categoryId as any).description,
-        } : undefined,
-      },
+      claim: claimResponse,
       isFollowing,
       userVote,
     }, { 
@@ -252,7 +285,7 @@ export async function PATCH(
       )
     }
 
-    const { status, reason, metadata } = validationResult.data
+    const { status, reason, metadata, title, description, seoTitle, seoDescription, titleEditReason, descriptionEditReason } = validationResult.data
 
     // Find the claim
     const claim = await Claim.findById(new mongoose.Types.ObjectId(claimId))
@@ -269,6 +302,78 @@ export async function PATCH(
       )
     }
 
+    // Handle title editing if title is being changed
+    if (title !== undefined && title !== claim.title) {
+      // If title_edited is currently false: Preserve existing title in original_title (if not already set)
+      if (!claim.titleEdited && !claim.originalTitle) {
+        claim.originalTitle = claim.title
+      }
+      
+      // Update title with the new edited text
+      claim.title = title
+      
+      // Set title editing metadata
+      claim.titleEdited = true
+      claim.titleEditedBy = new mongoose.Types.ObjectId(user.userId)
+      claim.titleEditedAt = new Date()
+      
+      // Validate that edit reason is provided when title is edited
+      if (!titleEditReason || !titleEditReason.trim()) {
+        return NextResponse.json(
+          { 
+            success: false,
+            error: 'Edit reason is required when editing title' 
+          },
+          { 
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      }
+      
+      claim.titleEditReason = titleEditReason
+    }
+
+    // Handle description editing if description is being changed
+    if (description !== undefined && description !== (claim.description || '')) {
+      // If description_edited is currently false: Preserve existing description in original_description (if not already set)
+      if (!claim.descriptionEdited && !claim.originalDescription) {
+        claim.originalDescription = claim.description
+      }
+      
+      // Update description with the new edited text
+      claim.description = description
+      
+      // Set description editing metadata
+      claim.descriptionEdited = true
+      claim.descriptionEditedBy = new mongoose.Types.ObjectId(user.userId)
+      claim.descriptionEditedAt = new Date()
+      
+      // Validate that edit reason is provided when description is edited
+      if (!descriptionEditReason || !descriptionEditReason.trim()) {
+        return NextResponse.json(
+          { 
+            success: false,
+            error: 'Edit reason is required when editing description' 
+          },
+          { 
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      }
+      
+      claim.descriptionEditReason = descriptionEditReason
+    }
+
+    // Update SEO fields if provided
+    if (seoTitle !== undefined) {
+      claim.seoTitle = seoTitle
+    }
+    if (seoDescription !== undefined) {
+      claim.seoDescription = seoDescription
+    }
+
     // Update claim status
     const newStatus = status.toUpperCase() as ClaimStatus
     claim.status = newStatus
@@ -282,6 +387,8 @@ export async function PATCH(
       moderationAction = ModerationAction.REJECT_CLAIM
     } else if (newStatus === ClaimStatus.FLAGGED) {
       moderationAction = ModerationAction.FLAG_CLAIM
+    } else if (newStatus === ClaimStatus.CLOSED) {
+      moderationAction = ModerationAction.APPROVE_CLAIM // Use approve as fallback for closed
     } else {
       moderationAction = ModerationAction.APPROVE_CLAIM // Default fallback
     }
@@ -327,6 +434,18 @@ export async function PATCH(
         categoryId: categoryIdString,
         status: populatedClaim.status.toLowerCase() as 'pending' | 'approved' | 'rejected' | 'flagged',
         viewCount: populatedClaim.viewCount,
+        seoTitle: populatedClaim.seoTitle,
+        seoDescription: populatedClaim.seoDescription,
+        originalTitle: populatedClaim.originalTitle,
+        titleEdited: populatedClaim.titleEdited,
+        titleEditedBy: populatedClaim.titleEditedBy?.toString(),
+        titleEditedAt: populatedClaim.titleEditedAt,
+        titleEditReason: populatedClaim.titleEditReason,
+        originalDescription: populatedClaim.originalDescription,
+        descriptionEdited: populatedClaim.descriptionEdited,
+        descriptionEditedBy: populatedClaim.descriptionEditedBy?.toString(),
+        descriptionEditedAt: populatedClaim.descriptionEditedAt,
+        descriptionEditReason: populatedClaim.descriptionEditReason,
         createdAt: populatedClaim.createdAt,
         updatedAt: populatedClaim.updatedAt,
         user: populatedClaim.userId instanceof mongoose.Types.ObjectId ? undefined : {
@@ -416,12 +535,15 @@ export async function DELETE(
       )
     }
 
-    // Check if user owns the claim
+    // Check if user owns the claim or is an admin
+    const userRole = user.role?.toUpperCase()
+    const isAdmin = userRole === 'ADMIN'
+    
     const claimUserId = claim.userId instanceof mongoose.Types.ObjectId
       ? claim.userId.toString()
       : (claim.userId as any)?._id?.toString() || (claim.userId as any).toString()
     
-    if (claimUserId !== user.userId) {
+    if (claimUserId !== user.userId && !isAdmin) {
       return NextResponse.json(
         { 
           success: false,
@@ -444,8 +566,11 @@ export async function DELETE(
       }
     }
 
-    // Delete related evidence files
+    // Get all evidence and perspectives for this claim before deletion
     const evidenceList = await Evidence.find({ claimId: claim._id })
+    const perspectiveList = await Perspective.find({ claimId: claim._id })
+
+    // Delete related evidence files and their associated data
     for (const evidence of evidenceList) {
       if (evidence.fileUrl) {
         try {
@@ -454,10 +579,12 @@ export async function DELETE(
           console.error('Error deleting evidence file:', error)
         }
       }
+      // Delete votes and follows for this evidence
+      await Vote.deleteMany({ evidenceId: evidence._id })
+      await EvidenceFollow.deleteMany({ evidenceId: evidence._id })
     }
 
-    // Delete related perspective files
-    const perspectiveList = await Perspective.find({ claimId: claim._id })
+    // Delete related perspective files and their associated data
     for (const perspective of perspectiveList) {
       if (perspective.fileUrl) {
         try {
@@ -466,10 +593,12 @@ export async function DELETE(
           console.error('Error deleting perspective file:', error)
         }
       }
+      // Delete votes and follows for this perspective
+      await PerspectiveVote.deleteMany({ perspectiveId: perspective._id })
+      await PerspectiveFollow.deleteMany({ perspectiveId: perspective._id })
     }
 
-    // Delete the claim (this will cascade delete related data if schema is set up correctly)
-    // But we'll also explicitly delete to be safe
+    // Delete the claim and all related data
     await ClaimVote.deleteMany({ claimId: claim._id })
     await ClaimFollow.deleteMany({ claimId: claim._id })
     await Evidence.deleteMany({ claimId: claim._id })

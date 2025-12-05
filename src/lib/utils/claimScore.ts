@@ -1,7 +1,8 @@
 import mongoose from 'mongoose'
 import { Evidence, Position, EvidenceStatus } from '@/lib/db/models'
 import { Perspective, PerspectiveStatus } from '@/lib/db/models'
-import { Claim } from '@/lib/db/models'
+import { Claim, Category } from '@/lib/db/models'
+import { generateSEOMetadata } from '@/lib/ai/summarize'
 
 const EVIDENCE_FOR_SCORE = 1
 const EVIDENCE_AGAINST_SCORE = -1
@@ -71,15 +72,48 @@ export async function calculateClaimScore(claimId: mongoose.Types.ObjectId): Pro
 export async function updateClaimScore(claimId: mongoose.Types.ObjectId): Promise<number> {
   const totalScore = await calculateClaimScore(claimId)
   
-  const updatedClaim = await Claim.findByIdAndUpdate(
-    claimId,
-    { totalScore },
-    { new: true }
-  )
+  // Get the claim with category populated to update SEO metadata
+  const claim = await Claim.findById(claimId).populate('categoryId', 'name slug')
   
-  if (!updatedClaim) {
+  if (!claim) {
     throw new Error(`Claim with ID ${claimId} not found`)
   }
+  
+  // Update total score
+  claim.totalScore = totalScore
+  await claim.save()
+  
+  // Determine leading side based on totalScore
+  const leadingSide: 'for' | 'against' | null = totalScore > 0 
+    ? 'for' 
+    : totalScore < 0 
+    ? 'against' 
+    : null
+  
+  // Update SEO metadata if leading side changed or if SEO metadata doesn't exist
+  // (async, non-blocking)
+  const categoryName = claim.categoryId && !(claim.categoryId instanceof mongoose.Types.ObjectId)
+    ? (claim.categoryId as any).name
+    : undefined
+  
+  generateSEOMetadata({
+    claimTitle: claim.title,
+    claimCategory: categoryName,
+    leadingSide,
+  })
+    .then(async (seoMetadata) => {
+      try {
+        await Claim.findByIdAndUpdate(claimId, {
+          seoTitle: seoMetadata.seoTitle,
+          seoDescription: seoMetadata.seoDescription,
+        })
+      } catch (dbError) {
+        console.error('Error updating SEO metadata after score change:', dbError)
+      }
+    })
+    .catch((error) => {
+      console.warn('SEO metadata update after score change completed with fallback or error:', error?.message || 'Unknown error')
+    })
   
   return totalScore
 }

@@ -64,17 +64,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Build query
-    const query: any = {
-      // Show both approved and pending evidence
-      status: { $in: [EvidenceStatus.APPROVED, EvidenceStatus.PENDING] },
+    const query: any = {}
+
+    // If filtering by userId (user's own content), show all statuses
+    // Otherwise, only show approved and pending
+    if (userId) {
+      query.userId = new mongoose.Types.ObjectId(userId)
+      // Don't filter by status - show all statuses for user's own content
+    } else {
+      // Show both approved and pending evidence for public viewing
+      query.status = { $in: [EvidenceStatus.APPROVED, EvidenceStatus.PENDING] }
     }
 
     if (claimId) {
       query.claimId = new mongoose.Types.ObjectId(claimId)
-    }
-
-    if (userId) {
-      query.userId = new mongoose.Types.ObjectId(userId)
     }
 
     if (position) {

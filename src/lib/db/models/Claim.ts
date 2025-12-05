@@ -5,6 +5,7 @@ export enum ClaimStatus {
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
   FLAGGED = 'FLAGGED',
+  CLOSED = 'CLOSED', // Discussion ended
 }
 
 export interface IClaim extends Document {
@@ -26,6 +27,20 @@ export interface IClaim extends Document {
   fileName?: string
   fileSize?: number
   fileType?: string
+  seoTitle?: string
+  seoDescription?: string
+  // Title editing fields
+  originalTitle?: string
+  titleEdited: boolean
+  titleEditedBy?: mongoose.Types.ObjectId
+  titleEditedAt?: Date
+  titleEditReason?: string
+  // Description editing fields
+  originalDescription?: string
+  descriptionEdited?: boolean
+  descriptionEditedBy?: mongoose.Types.ObjectId
+  descriptionEditedAt?: Date
+  descriptionEditReason?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -96,6 +111,46 @@ const ClaimSchema = new Schema<IClaim>(
       type: Number,
     },
     fileType: {
+      type: String,
+    },
+    seoTitle: {
+      type: String,
+    },
+    seoDescription: {
+      type: String,
+    },
+    originalTitle: {
+      type: String,
+    },
+    titleEdited: {
+      type: Boolean,
+      default: false,
+    },
+    titleEditedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    titleEditedAt: {
+      type: Date,
+    },
+    titleEditReason: {
+      type: String,
+    },
+    originalDescription: {
+      type: String,
+    },
+    descriptionEdited: {
+      type: Boolean,
+      default: false,
+    },
+    descriptionEditedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    descriptionEditedAt: {
+      type: Date,
+    },
+    descriptionEditReason: {
       type: String,
     },
   },
