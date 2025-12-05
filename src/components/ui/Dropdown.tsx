@@ -60,7 +60,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
           'flex items-center justify-between'
         )}
       >
-        <span className={cn(!selectedOption && 'text-gray-500 dark:text-gray-400')}>
+        <span className={cn(!selectedOption && 'text-gray-500 dark:text-gray-400 text-sm')}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <svg

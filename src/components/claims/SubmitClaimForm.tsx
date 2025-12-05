@@ -165,26 +165,29 @@ export const SubmitClaimForm: React.FC<SubmitClaimFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div>
-          <Input
-            label="Claim Title"
-            placeholder="Enter your claim"
-            value={formData.title}
-            onChange={(e) => {
-              setFormData({ ...formData, title: e.target.value })
-              if (errors.title) {
-                setErrors({ ...errors, title: undefined })
-              }
-            }}
-            error={errors.title}
-            className="w-full rounded-full"
-          />
+          <div className="text-base sm:text-lg font-medium text-black dark:text-gray-100 mb-2">Title</div>
+          <div>
+            <Input
+              label="Make your claim a specific, arguable statement—not a question, opinion rant, or broad topic."
+              placeholder="Enter your claim"
+              value={formData.title}
+              onChange={(e) => {
+                setFormData({ ...formData, title: e.target.value })
+                if (errors.title) {
+                  setErrors({ ...errors, title: undefined })
+                }
+              }}
+              error={errors.title}
+              className="w-full rounded-full"
+            />
+          </div>
         </div>
         <div>
-          <label className="block text-sm items-start font-medium text-[#666666] dark:text-gray-400 mb-1">
+          <div className="text-[16px] sm:text-[18px] font-medium text-black dark:text-gray-100 mb-2">
             Select Category
-          </label>
+          </div>
           <Dropdown
             options={categoryOptions}
             value={formData.category}
@@ -199,18 +202,22 @@ export const SubmitClaimForm: React.FC<SubmitClaimFormProps> = ({
           />
         </div>
       </div>
-
+      <div className='flex flex-col'>
+      <div className="text-[16px] sm:text-[18px] font-medium text-black dark:text-gray-100 mb-2">
+        Description (optional)
+      </div>
       <Textarea
-        label="Description (optional)"
+        // label="Description (optional)"
         placeholder="Provide additional context"
         value={formData.description}
         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
         maxLength={500}
         showCharCount
       />
+      </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-[#666666] dark:text-gray-400 mb-2">
+        <h2 className="text-[16px] sm:text-[18px] font-medium text-black dark:text-gray-100 mb-2">
           Add Initial Evidence (optional)
         </h2>
 

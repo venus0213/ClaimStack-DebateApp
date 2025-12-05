@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Dropdown } from '@/components/ui/Dropdown'
 import { Modal } from '@/components/ui/Modal'
-import { SearchIcon } from '@/components/ui/Icons'
+import { SearchIcon, ChevronDownIcon, ChevronUpIcon } from '@/components/ui/Icons'
 import { useAuth } from '@/hooks/useAuth'
 
 interface User {
@@ -57,6 +57,9 @@ export default function UserManagementPage() {
   const [newPassword, setNewPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  
+  // Expanded users for mobile view
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set())
 
   // Check if user is ADMIN, redirect if not
   useEffect(() => {
@@ -269,20 +272,32 @@ export default function UserManagementPage() {
     }
   }
 
+  const toggleUserExpand = (userId: string) => {
+    setExpandedUsers((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(userId)) {
+        newSet.delete(userId)
+      } else {
+        newSet.add(userId)
+      }
+      return newSet
+    })
+  }
+
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors">
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        <div className="flex flex-col sm:flex-row sm:items-center mb-4 sm:mb-8 gap-4">
-          <h1 className="text-2xl sm:text-3xl lg:text-[46px] font-semibold text-[#030303] dark:text-gray-100">
+      <div className="w-full px-3 sm:px-4 lg:px-6 xl:px-8 py-3 sm:py-4 lg:py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center mb-3 sm:mb-4 lg:mb-8 gap-3 sm:gap-4">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl xl:text-[46px] font-semibold text-[#030303] dark:text-gray-100">
             User Management Panel
           </h1>
         </div>
 
         {/* Search and Filters */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row gap-3 sm:gap-4">
           <div className="flex-1 relative">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <SearchIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+            <div className="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
+              <SearchIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 dark:text-gray-500" />
             </div>
             <input
               type="text"
@@ -292,7 +307,7 @@ export default function UserManagementPage() {
                 setSearchQuery(e.target.value)
                 setPage(1)
               }}
-              className="w-full pl-12 pr-4 py-2 sm:py-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-sm placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
+              className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs sm:text-sm placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
             />
           </div>
           <div className="w-full sm:w-48">
@@ -315,48 +330,181 @@ export default function UserManagementPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-red-600 dark:text-red-400">{error}</p>
+          <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-xs sm:text-sm text-red-600 dark:text-red-400">{error}</p>
           </div>
         )}
 
         {/* Loading State */}
         {isLoading && (
-          <div className="text-center py-8">
-            <p className="text-gray-600 dark:text-gray-400">Loading users...</p>
+          <div className="text-center py-6 sm:py-8">
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Loading users...</p>
           </div>
         )}
 
-        {/* Users Table */}
+        {/* Users Display */}
         {!isLoading && (
           <>
-            <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            <div className="mb-3 sm:mb-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Showing {users.length} of {total} users
             </div>
-            <Card className="p-4 sm:p-6 rounded-lg sm:rounded-[32px] overflow-x-auto">
-              <table className="w-full">
+            
+            {/* Mobile View - Card Layout */}
+            <div className="block md:hidden space-y-3">
+              {users.length === 0 ? (
+                <Card className="p-6 rounded-lg text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No users found</p>
+                </Card>
+              ) : (
+                users.map((user) => {
+                  const isExpanded = expandedUsers.has(user.id)
+                  return (
+                    <Card key={user.id} className="p-3 sm:p-4 rounded-lg overflow-hidden">
+                      {/* User Summary - Clickable */}
+                      <button
+                        onClick={() => toggleUserExpand(user.id)}
+                        className="w-full flex items-center gap-3 text-left hover:opacity-80 transition-opacity"
+                      >
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-blue-500 dark:border-blue-400 flex items-center justify-center overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
+                          {user.avatarUrl ? (
+                            <img
+                              src={user.avatarUrl}
+                              alt={user.username}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-sm sm:text-base font-medium text-gray-600 dark:text-gray-300">
+                              {user.username.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm sm:text-base text-gray-900 dark:text-gray-100 truncate">
+                            @{user.username}
+                          </div>
+                          {(user.firstName || user.lastName) && (
+                            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
+                              {user.firstName} {user.lastName}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-shrink-0">
+                          {isExpanded ? (
+                            <ChevronUpIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                          ) : (
+                            <ChevronDownIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                          )}
+                        </div>
+                      </button>
+
+                      {/* Expanded Details */}
+                      {isExpanded && (
+                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                          {/* User Details */}
+                          <div className="space-y-3">
+                            <div>
+                              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email</div>
+                              <div className="text-sm text-gray-900 dark:text-gray-100 break-all">{user.email}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Role</div>
+                              <span
+                                className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeColor(
+                                  user.role
+                                )}`}
+                              >
+                                {user.role}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Joined</div>
+                              <div className="text-sm text-gray-900 dark:text-gray-100">{formatDate(user.createdAt)}</div>
+                            </div>
+                            {user.emailVerified !== undefined && (
+                              <div>
+                                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email Verified</div>
+                                <div className="text-sm text-gray-900 dark:text-gray-100">
+                                  {user.emailVerified ? (
+                                    <span className="text-green-600 dark:text-green-400">Yes</span>
+                                  ) : (
+                                    <span className="text-red-600 dark:text-red-400">No</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex flex-col gap-2 pt-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                openRoleModal(user)
+                                toggleUserExpand(user.id)
+                              }}
+                              disabled={currentUser.id === user.id}
+                              className="w-full text-xs sm:text-sm"
+                            >
+                              Change Role
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                openPasswordModal(user)
+                                toggleUserExpand(user.id)
+                              }}
+                              className="w-full text-xs sm:text-sm"
+                            >
+                              Change Password
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => {
+                                openDeleteModal(user)
+                                toggleUserExpand(user.id)
+                              }}
+                              disabled={currentUser.id === user.id}
+                              className="w-full text-xs sm:text-sm"
+                            >
+                              Delete User
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Desktop View - Table Layout */}
+            <Card className="hidden md:block p-4 sm:p-6 rounded-lg lg:rounded-[32px] overflow-x-auto">
+              <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">User</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Email</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Role</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Joined</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Actions</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">User</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Email</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Role</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Joined</th>
+                    <th className="text-right py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <td colSpan={5} className="text-center py-6 sm:py-8 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                         No users found
                       </td>
                     </tr>
                   ) : (
                     users.map((user) => (
                       <tr key={user.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full border border-blue-500 dark:border-blue-400 flex items-center justify-center overflow-hidden bg-gray-100 dark:bg-gray-700">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4">
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-blue-500 dark:border-blue-400 flex items-center justify-center overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
                               {user.avatarUrl ? (
                                 <img
                                   src={user.avatarUrl}
@@ -364,23 +512,23 @@ export default function UserManagementPage() {
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                                <span className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300">
                                   {user.username.charAt(0).toUpperCase()}
                                 </span>
                               )}
                             </div>
-                            <div>
-                              <div className="font-medium text-gray-900 dark:text-gray-100">@{user.username}</div>
+                            <div className="min-w-0">
+                              <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">@{user.username}</div>
                               {(user.firstName || user.lastName) && (
-                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                                   {user.firstName} {user.lastName}
                                 </div>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">{user.email}</td>
-                        <td className="py-3 px-4">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-gray-700 dark:text-gray-300 break-all">{user.email}</td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4">
                           <span
                             className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeColor(
                               user.role
@@ -389,15 +537,16 @@ export default function UserManagementPage() {
                             {user.role}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{formatDate(user.createdAt)}</td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{formatDate(user.createdAt)}</td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4">
+                          <div className="flex items-center justify-end gap-1.5 sm:gap-2">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => openRoleModal(user)}
                               disabled={currentUser.id === user.id}
                               title={currentUser.id === user.id ? 'Cannot change your own role' : 'Change role'}
+                              className="text-xs sm:text-sm px-2 sm:px-3"
                             >
                               Role
                             </Button>
@@ -405,6 +554,7 @@ export default function UserManagementPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => openPasswordModal(user)}
+                              className="text-xs sm:text-sm px-2 sm:px-3"
                             >
                               Password
                             </Button>
@@ -414,6 +564,7 @@ export default function UserManagementPage() {
                               onClick={() => openDeleteModal(user)}
                               disabled={currentUser.id === user.id}
                               title={currentUser.id === user.id ? 'Cannot delete your own account' : 'Delete user'}
+                              className="text-xs sm:text-sm px-2 sm:px-3"
                             >
                               Delete
                             </Button>
@@ -428,16 +579,17 @@ export default function UserManagementPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-center gap-2">
+              <div className="mt-4 sm:mt-6 flex items-center justify-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
+                  className="text-xs sm:text-sm px-3 sm:px-4"
                 >
                   Previous
                 </Button>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   Page {page} of {totalPages}
                 </span>
                 <Button
@@ -445,6 +597,7 @@ export default function UserManagementPage() {
                   size="sm"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
+                  className="text-xs sm:text-sm px-3 sm:px-4"
                 >
                   Next
                 </Button>
@@ -464,11 +617,11 @@ export default function UserManagementPage() {
         title="Delete User"
         size="sm"
       >
-        <div className="space-y-4">
-          <p className="text-gray-700 dark:text-gray-300">
-            Are you sure you want to delete user <strong className="dark:text-gray-100">@{selectedUser?.username}</strong>? This action cannot be undone.
+        <div className="space-y-3 sm:space-y-4">
+          <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300">
+            Are you sure you want to delete user <strong className="dark:text-gray-100 break-words">@{selectedUser?.username}</strong>? This action cannot be undone.
           </p>
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
             <Button
               variant="outline"
               onClick={() => {
@@ -476,10 +629,11 @@ export default function UserManagementPage() {
                 setSelectedUser(null)
               }}
               disabled={isProcessing}
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleDelete} isLoading={isProcessing}>
+            <Button variant="danger" onClick={handleDelete} isLoading={isProcessing} className="w-full sm:w-auto">
               Delete
             </Button>
           </div>
@@ -497,9 +651,9 @@ export default function UserManagementPage() {
         title="Change User Role"
         size="sm"
       >
-        <div className="space-y-4">
-          <p className="text-gray-700 dark:text-gray-300">
-            Change role for user <strong className="dark:text-gray-100">@{selectedUser?.username}</strong>
+        <div className="space-y-3 sm:space-y-4">
+          <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300">
+            Change role for user <strong className="dark:text-gray-100 break-words">@{selectedUser?.username}</strong>
           </p>
           <Dropdown
             options={[
@@ -511,7 +665,7 @@ export default function UserManagementPage() {
             onChange={setNewRole}
             placeholder="Select role"
           />
-          <div className="flex justify-end gap-3 pt-10 pb-3">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-6 sm:pt-10 pb-2 sm:pb-3">
             <Button
               variant="outline"
               onClick={() => {
@@ -520,10 +674,11 @@ export default function UserManagementPage() {
                 setNewRole('')
               }}
               disabled={isProcessing}
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleRoleChange} isLoading={isProcessing}>
+            <Button variant="primary" onClick={handleRoleChange} isLoading={isProcessing} className="w-full sm:w-auto">
               Update Role
             </Button>
           </div>
@@ -542,9 +697,9 @@ export default function UserManagementPage() {
         title="Change User Password"
         size="lg"
       >
-        <div className="space-y-4">
-          <p className="text-gray-700 dark:text-gray-300">
-            Set a new password for user <strong className="dark:text-gray-100">@{selectedUser?.username}</strong>
+        <div className="space-y-3 sm:space-y-4">
+          <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300">
+            Set a new password for user <strong className="dark:text-gray-100 break-words">@{selectedUser?.username}</strong>
           </p>
           <Input
             type="password"
@@ -557,7 +712,7 @@ export default function UserManagementPage() {
             placeholder="Enter new password (min 8 characters)"
             error={passwordError}
           />
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-2">
             <Button
               variant="outline"
               onClick={() => {
@@ -567,10 +722,11 @@ export default function UserManagementPage() {
                 setPasswordError('')
               }}
               disabled={isProcessing}
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
-            <Button variant="primary" onClick={handlePasswordChange} isLoading={isProcessing}>
+            <Button variant="primary" onClick={handlePasswordChange} isLoading={isProcessing} className="w-full sm:w-auto">
               Update Password
             </Button>
           </div>

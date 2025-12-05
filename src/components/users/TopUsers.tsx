@@ -75,11 +75,11 @@ export const TopUsers: React.FC = () => {
   }
 
   return (
-    <div className="mb-6 sm:mb-8 sm:mt-8">
-      <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+    <div className="mb-3 sm:mb-8 sm:mt-8">
+      <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 sm:mb-4">
         Top Users
       </h2>
-      <div className="flex gap-3 sm:gap-8 overflow-x-auto scrollbar-hide pb-2 pt-5 pl-2 scroll-smooth">
+      <div className="flex gap-3 sm:gap-8 overflow-x-auto scrollbar-hide sm:pb-2 sm:pt-5 pl-2 scroll-smooth">
         {users.map((user, index) => {
           const avatarUrl = user.avatarUrl || '/icons/user.png'
           const displayName =
@@ -111,16 +111,6 @@ export const TopUsers: React.FC = () => {
             return 'shadow-lg shadow-blue-500/20 dark:shadow-blue-400/20 group-hover:shadow-xl group-hover:shadow-blue-500/30 dark:group-hover:shadow-blue-400/30' // Default blue shadow
           }
 
-          // Get badge image for top 3 users
-          const getBadgeImage = () => {
-            if (index === 0) return '/images/claim_user_1.png'
-            if (index === 1) return '/images/claim_user_2.png'
-            if (index === 2) return '/images/claim_user_3.png'
-            return null
-          }
-
-          const badgeImage = getBadgeImage()
-
           return (
             <Link
               key={user.id}
@@ -138,18 +128,6 @@ export const TopUsers: React.FC = () => {
                     unoptimized
                   />
                 </div>
-                {badgeImage && (
-                  <div className="absolute -top-[22px] -right-1 sm:-top-7 sm:-right-1.5 z-10">
-                    <Image
-                      src={badgeImage}
-                      alt={`Rank ${index + 1} badge`}
-                      width={32}
-                      height={32}
-                      className="w-12 h-8 sm:w-14 sm:h-10 rotate-[25deg] sm:rotate-[25deg]"
-                      unoptimized
-                    />
-                  </div>
-                )}
               </div>
               <div className="text-center max-w-[80px] sm:max-w-[120px]">
                 <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 truncate w-full group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">

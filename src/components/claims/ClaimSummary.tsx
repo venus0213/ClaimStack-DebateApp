@@ -29,7 +29,7 @@ export const ClaimSummary: React.FC<ClaimSummaryProps> = ({ evidence = [] }) => 
   }, [evidence])
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 pt-10">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 pt-5">
       {/* For Summary */}
       <Card className="p-4 sm:p-6 bg-[#E9F2FF] dark:bg-blue-900/20 border-[#1066DE] dark:border-blue-500 rounded-2xl sm:rounded-3xl">
         <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">

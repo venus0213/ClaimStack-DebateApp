@@ -375,12 +375,13 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 sm:gap-4">
+          <div className="w-full sm:w-auto -mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto sm:overflow-visible scrollbar-hide scroll-smooth">
+            <div className="flex flex-nowrap sm:flex-wrap gap-2 sm:gap-4 min-w-max sm:min-w-0">
             {profileButtons.map((button) => (
               <button
                 key={button.id}
                 onClick={() => setActiveTab(button.id)}
-                className={`px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium transition-colors ${
+                  className={`px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
                   activeTab === button.id
                     ? 'bg-blue-600 dark:bg-blue-500 text-white'
                     : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -389,6 +390,7 @@ export default function ProfilePage() {
                 {button.label}
               </button>
             ))}
+            </div>
           </div>
         </div>
 

@@ -54,7 +54,7 @@ export const RejectModal: React.FC<RejectModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       size="sm"
-      showCloseButton={false}
+      showCloseButton={true}
     >
       <div className="space-y-4">
         <div className="flex flex-col font-semibold text-2xl items-center justify-center py-4">

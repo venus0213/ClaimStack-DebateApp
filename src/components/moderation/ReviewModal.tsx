@@ -98,7 +98,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         size="xl2"
-        showCloseButton={false}
+        showCloseButton={true}
       >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 py-6">
         {/* Left Section: Claim Content */}

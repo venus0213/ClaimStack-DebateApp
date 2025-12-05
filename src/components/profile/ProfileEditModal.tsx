@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Button } from '@/components/ui/Button'
 import { User } from '@/lib/types'
 import { useAuth } from '@/hooks/useAuth'
+import { ChevronDownIcon, ChevronUpIcon } from '@/components/ui/Icons'
 
 interface ProfileEditModalProps {
   isOpen: boolean
@@ -40,6 +41,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isPasswordExpanded, setIsPasswordExpanded] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -232,6 +234,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
         newPassword: '',
         confirmPassword: '',
       })
+      setIsPasswordExpanded(false)
       onClose()
     }
   }
@@ -250,10 +253,10 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             {success}
           </div>
         )}
-        <div className="flex flex-row gap-6 w-full">
+        <div className="flex flex-col md:flex-row gap-6 w-full">
 
         {/* Profile Section */}
-        <form onSubmit={handleSubmit} className="space-y-4 w-1/2">
+        <form onSubmit={handleSubmit} className="space-y-4 w-full md:w-1/2">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Profile Information</h3>
 
           {/* Avatar Upload */}
@@ -322,12 +325,13 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           />
 
           {/* Submit Button */}
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
             <Button
               type="button"
               variant="outline"
               onClick={handleClose}
               disabled={loading}
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
@@ -336,6 +340,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               variant="primary"
               isLoading={loading}
               disabled={loading}
+              className="w-full sm:w-auto"
             >
               Save Changes
             </Button>
@@ -343,65 +348,84 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
         </form>
 
         {/* Password Change Section */}
-        <div className="border-l border-gray-200 dark:border-gray-700 pl-6 w-1/2">
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+        <div className="w-full md:w-1/2 md:border-l md:border-gray-200 md:dark:border-gray-700 md:pl-6 pt-6 md:pt-0 border-t border-gray-200 dark:border-gray-700 md:border-t-0">
+          {/* Mobile: Collapsible Header */}
+          <button
+            type="button"
+            onClick={() => setIsPasswordExpanded(!isPasswordExpanded)}
+            className="md:hidden w-full flex items-center justify-between py-2 text-left"
+          >
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Change Password</h3>
-
-            {/* Password Error Message */}
-            {passwordError && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-200 text-sm">
-                {passwordError}
-              </div>
+            {isPasswordExpanded ? (
+              <ChevronUpIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            ) : (
+              <ChevronDownIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             )}
+          </button>
 
-            {/* Current Password */}
-            <Input
-              label="Current Password"
-              name="currentPassword"
-              type="password"
-              value={passwordData.currentPassword}
-              onChange={handlePasswordChange}
-              placeholder="Enter your current password"
-              required
-            />
+          {/* Desktop: Always visible title */}
+          <h3 className="hidden md:block text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Change Password</h3>
 
-            {/* New Password */}
-            <Input
-              label="New Password"
-              name="newPassword"
-              type="password"
-              value={passwordData.newPassword}
-              onChange={handlePasswordChange}
-              placeholder="Enter your new password (min 8 characters)"
-              required
-            />
+          {/* Password Form - Hidden on mobile when collapsed */}
+          <div className={`${isPasswordExpanded ? 'block' : 'hidden'} md:block`}>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              {/* Password Error Message */}
+              {passwordError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-200 text-sm">
+                  {passwordError}
+                </div>
+              )}
 
-            {/* Confirm Password */}
-            <Input
-              label="Confirm New Password"
-              name="confirmPassword"
-              type="password"
-              value={passwordData.confirmPassword}
-              onChange={handlePasswordChange}
-              placeholder="Confirm your new password"
-              required
-            />
+              {/* Current Password */}
+              <Input
+                label="Current Password"
+                name="currentPassword"
+                type="password"
+                value={passwordData.currentPassword}
+                onChange={handlePasswordChange}
+                placeholder="Enter your current password"
+                required
+              />
 
-            {/* Submit Button */}
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                type="submit"
-                variant="primary"
-                isLoading={loading}
-                disabled={loading}
-              >
-                Change Password
-              </Button>
-            </div>
-          </form>
+              {/* New Password */}
+              <Input
+                label="New Password"
+                name="newPassword"
+                type="password"
+                value={passwordData.newPassword}
+                onChange={handlePasswordChange}
+                placeholder="Enter your new password (min 8 characters)"
+                required
+              />
+
+              {/* Confirm Password */}
+              <Input
+                label="Confirm New Password"
+                name="confirmPassword"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                placeholder="Confirm your new password"
+                required
+              />
+
+              {/* Submit Button */}
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  isLoading={loading}
+                  disabled={loading}
+                  className="w-full sm:w-auto"
+                >
+                  Change Password
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
         </div>
       </div>
-    </div>
     </Modal>
   )
 }

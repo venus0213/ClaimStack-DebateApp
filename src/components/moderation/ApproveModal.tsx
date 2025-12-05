@@ -203,7 +203,7 @@ export const ApproveModal: React.FC<ApproveModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       size="xl2"
-      showCloseButton={false}
+      showCloseButton={true}
     >
       <div className="space-y-6">
         {/* Header */}
