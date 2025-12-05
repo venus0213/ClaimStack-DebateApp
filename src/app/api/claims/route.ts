@@ -329,6 +329,10 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Check if user is admin or creator for editing fields visibility
+    const isAdmin = user && (user.role?.toUpperCase() === 'ADMIN' || user.role?.toUpperCase() === 'MODERATOR')
+    const currentUserId = user?.userId
+
     // Transform claims to match frontend format
     const transformedClaims = claims.map((claim: any) => {
       const userId = claim.userId instanceof mongoose.Types.ObjectId 
@@ -341,7 +345,10 @@ export async function GET(request: NextRequest) {
             : (claim.categoryId?._id?.toString() || claim.categoryId?.toString()))
         : undefined
 
-      return {
+      const isCreator = currentUserId && userId === currentUserId
+      const canSeeEditFields = isAdmin || isCreator
+
+      const claimResponse: any = {
         id: claim._id.toString(),
         userId,
         title: claim.title,
@@ -382,6 +389,22 @@ export async function GET(request: NextRequest) {
           description: claim.categoryId.description,
         } : undefined,
       }
+
+      // Include title and description editing fields only for admins and creators
+      if (canSeeEditFields) {
+        claimResponse.originalTitle = claim.originalTitle
+        claimResponse.titleEdited = claim.titleEdited || false
+        claimResponse.titleEditedBy = claim.titleEditedBy?.toString()
+        claimResponse.titleEditedAt = claim.titleEditedAt
+        claimResponse.titleEditReason = claim.titleEditReason
+        claimResponse.originalDescription = claim.originalDescription
+        claimResponse.descriptionEdited = claim.descriptionEdited || false
+        claimResponse.descriptionEditedBy = claim.descriptionEditedBy?.toString()
+        claimResponse.descriptionEditedAt = claim.descriptionEditedAt
+        claimResponse.descriptionEditReason = claim.descriptionEditReason
+      }
+
+      return claimResponse
     })
 
     return NextResponse.json({
@@ -475,9 +498,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Create claim
+    // Set originalTitle = title on create so history is always available
     const claim = await Claim.create({
       userId: new mongoose.Types.ObjectId(user.userId),
       title,
+      originalTitle: title, // Set original title on creation as recommended
       description,
       categoryId,
       status: ClaimStatus.PENDING,
@@ -487,6 +512,7 @@ export async function POST(request: NextRequest) {
       fileName,
       fileSize,
       fileType,
+      titleEdited: false, // Not edited yet
     })
 
     // Populate claim with user and category

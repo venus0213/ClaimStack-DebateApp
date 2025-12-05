@@ -35,6 +35,18 @@ export interface Claim {
   fileType?: string
   seoTitle?: string
   seoDescription?: string
+  // Title editing fields
+  originalTitle?: string
+  titleEdited?: boolean
+  titleEditedBy?: string
+  titleEditedAt?: Date
+  titleEditReason?: string
+  // Description editing fields
+  originalDescription?: string
+  descriptionEdited?: boolean
+  descriptionEditedBy?: string
+  descriptionEditedAt?: Date
+  descriptionEditReason?: string
   createdAt: Date
   updatedAt: Date
   user?: User

@@ -6,13 +6,16 @@ import Link from 'next/link'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { SearchIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon } from '@/components/ui/Icons'
+import { SearchIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon, EditIcon } from '@/components/ui/Icons'
 import { Claim, Evidence, Perspective, User } from '@/lib/types'
 import { useAuth } from '@/hooks/useAuth'
+import { EditClaimModal } from '@/components/claims/EditClaimModal'
 
 interface ClaimWithContent extends Claim {
-  evidence: Evidence[]
-  perspectives: Perspective[]
+  evidence?: Evidence[]
+  perspectives?: Perspective[]
+  _loadingContent?: boolean
+  _contentLoaded?: boolean
 }
 
 export default function ContentManagementPage() {
@@ -31,6 +34,8 @@ export default function ContentManagementPage() {
     title?: string
   } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [claimToEdit, setClaimToEdit] = useState<ClaimWithContent | null>(null)
 
   useEffect(() => {
     if (!authLoading) {
@@ -45,87 +50,117 @@ export default function ContentManagementPage() {
     }
   }, [user, authLoading, router])
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user || user.role?.toUpperCase() !== 'ADMIN') return
+  // Reusable function to fetch claims (without evidence/perspectives)
+  const fetchClaims = async () => {
+    setIsLoading(true)
+    setError(null)
 
-      setIsLoading(true)
-      setError(null)
+    try {
+      const statuses = ['approved', 'pending', 'rejected', 'flagged']
+      const allClaimsPromises = statuses.map((status) =>
+        fetch(`/api/claims?status=${status}&sortBy=newest&limit=1000`, {
+          credentials: 'include',
+        }).then((res) => res.json())
+      )
 
-      try {
-        const statuses = ['approved', 'pending', 'rejected', 'flagged']
-        const allClaimsPromises = statuses.map((status) =>
-          fetch(`/api/claims?status=${status}&sortBy=newest&limit=1000`, {
-            credentials: 'include',
-          }).then((res) => res.json())
-        )
+      const allClaimsResults = await Promise.all(allClaimsPromises)
+      const allClaims: Claim[] = []
+      
+      allClaimsResults.forEach((result) => {
+        if (result.success && result.claims) {
+          allClaims.push(...result.claims)
+        }
+      })
 
-        const allClaimsResults = await Promise.all(allClaimsPromises)
-        const allClaims: Claim[] = []
-        
-        allClaimsResults.forEach((result) => {
-          if (result.success && result.claims) {
-            allClaims.push(...result.claims)
-          }
-        })
+      // Remove duplicates (in case any claim appears in multiple statuses)
+      const uniqueClaims = Array.from(
+        new Map(allClaims.map((claim) => [claim.id, claim])).values()
+      )
 
-        // Remove duplicates (in case any claim appears in multiple statuses)
-        const uniqueClaims = Array.from(
-          new Map(allClaims.map((claim) => [claim.id, claim])).values()
-        )
+      // Initialize claims without evidence/perspectives (lazy load them)
+      const claimsWithContent: ClaimWithContent[] = uniqueClaims.map((claim: Claim) => ({
+        ...claim,
+        evidence: undefined,
+        perspectives: undefined,
+        _loadingContent: false,
+        _contentLoaded: false,
+      }))
 
-        // For each claim, fetch its evidence and perspectives
-        const claimsWithContent: ClaimWithContent[] = await Promise.all(
-          uniqueClaims.map(async (claim: Claim) => {
-            const evidenceParams = new URLSearchParams({
-              claimId: claim.id,
-            })
-            const evidenceResponse = await fetch(`/api/evidence?${evidenceParams.toString()}`, {
-              credentials: 'include',
-            })
-
-            let evidence: Evidence[] = []
-            if (evidenceResponse.ok) {
-              const evidenceData = await evidenceResponse.json()
-              if (evidenceData.success && evidenceData.evidence) {
-                evidence = evidenceData.evidence
-              }
-            }
-
-            // Fetch perspectives for this claim
-            const perspectivesParams = new URLSearchParams({
-              claimId: claim.id,
-            })
-            const perspectivesResponse = await fetch(`/api/perspectives?${perspectivesParams.toString()}`, {
-              credentials: 'include',
-            })
-
-            let perspectives: Perspective[] = []
-            if (perspectivesResponse.ok) {
-              const perspectivesData = await perspectivesResponse.json()
-              if (perspectivesData.success && perspectivesData.perspectives) {
-                perspectives = perspectivesData.perspectives
-              }
-            }
-
-            return {
-              ...claim,
-              evidence,
-              perspectives,
-            }
-          })
-        )
-
-        setClaims(claimsWithContent)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred')
-        console.error('Error fetching data:', err)
-      } finally {
-        setIsLoading(false)
-      }
+      setClaims(claimsWithContent)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      console.error('Error fetching data:', err)
+    } finally {
+      setIsLoading(false)
     }
+  }
 
-    fetchData()
+  // Fetch evidence and perspectives for a specific claim (lazy loading)
+  const fetchClaimContent = async (claimId: string) => {
+    const claim = claims.find((c) => c.id === claimId)
+    if (!claim || claim._contentLoaded || claim._loadingContent) return
+
+    // Mark as loading
+    setClaims((prev) =>
+      prev.map((c) =>
+        c.id === claimId ? { ...c, _loadingContent: true } : c
+      )
+    )
+
+    try {
+      // Fetch evidence and perspectives in parallel
+      const [evidenceResponse, perspectivesResponse] = await Promise.all([
+        fetch(`/api/evidence?claimId=${claimId}`, {
+          credentials: 'include',
+        }),
+        fetch(`/api/perspectives?claimId=${claimId}`, {
+          credentials: 'include',
+        }),
+      ])
+
+      let evidence: Evidence[] = []
+      if (evidenceResponse.ok) {
+        const evidenceData = await evidenceResponse.json()
+        if (evidenceData.success && evidenceData.evidence) {
+          evidence = evidenceData.evidence
+        }
+      }
+
+      let perspectives: Perspective[] = []
+      if (perspectivesResponse.ok) {
+        const perspectivesData = await perspectivesResponse.json()
+        if (perspectivesData.success && perspectivesData.perspectives) {
+          perspectives = perspectivesData.perspectives
+        }
+      }
+
+      // Update the claim with loaded content
+      setClaims((prev) =>
+        prev.map((c) =>
+          c.id === claimId
+            ? {
+                ...c,
+                evidence,
+                perspectives,
+                _loadingContent: false,
+                _contentLoaded: true,
+              }
+            : c
+        )
+      )
+    } catch (err) {
+      console.error('Error fetching claim content:', err)
+      setClaims((prev) =>
+        prev.map((c) =>
+          c.id === claimId ? { ...c, _loadingContent: false } : c
+        )
+      )
+    }
+  }
+
+  useEffect(() => {
+    if (!user || user.role?.toUpperCase() !== 'ADMIN') return
+    fetchClaims()
   }, [user, router])
 
   if (authLoading) {
@@ -147,6 +182,8 @@ export default function ContentManagementPage() {
         newSet.delete(claimId)
       } else {
         newSet.add(claimId)
+        // Fetch content when expanding (lazy load)
+        fetchClaimContent(claimId)
       }
       return newSet
     })
@@ -243,77 +280,8 @@ export default function ContentManagementPage() {
         throw new Error(data.error || 'Failed to delete')
       }
 
-      // Refresh the data
-      const fetchData = async () => {
-        setIsLoading(true)
-        setError(null)
-
-        try {
-          const statuses = ['approved', 'pending', 'rejected', 'flagged']
-          const allClaimsPromises = statuses.map((status) =>
-            fetch(`/api/claims?status=${status}&sortBy=newest&limit=1000`, {
-              credentials: 'include',
-            }).then((res) => res.json())
-          )
-
-          const allClaimsResults = await Promise.all(allClaimsPromises)
-          const allClaims: Claim[] = []
-          
-          allClaimsResults.forEach((result) => {
-            if (result.success && result.claims) {
-              allClaims.push(...result.claims)
-            }
-          })
-
-          const uniqueClaims = Array.from(
-            new Map(allClaims.map((claim) => [claim.id, claim])).values()
-          )
-
-          const claimsWithContent: ClaimWithContent[] = await Promise.all(
-            uniqueClaims.map(async (claim: Claim) => {
-              const evidenceParams = new URLSearchParams({ claimId: claim.id })
-              const evidenceResponse = await fetch(`/api/evidence?${evidenceParams.toString()}`, {
-                credentials: 'include',
-              })
-
-              let evidence: Evidence[] = []
-              if (evidenceResponse.ok) {
-                const evidenceData = await evidenceResponse.json()
-                if (evidenceData.success && evidenceData.evidence) {
-                  evidence = evidenceData.evidence
-                }
-              }
-
-              const perspectivesParams = new URLSearchParams({ claimId: claim.id })
-              const perspectivesResponse = await fetch(`/api/perspectives?${perspectivesParams.toString()}`, {
-                credentials: 'include',
-              })
-
-              let perspectives: Perspective[] = []
-              if (perspectivesResponse.ok) {
-                const perspectivesData = await perspectivesResponse.json()
-                if (perspectivesData.success && perspectivesData.perspectives) {
-                  perspectives = perspectivesData.perspectives
-                }
-              }
-
-              return {
-                ...claim,
-                evidence,
-                perspectives,
-              }
-            })
-          )
-
-          setClaims(claimsWithContent)
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'An error occurred')
-        } finally {
-          setIsLoading(false)
-        }
-      }
-
-      await fetchData()
+      // Refresh the data (only claims, not content)
+      await fetchClaims()
       setDeleteModalOpen(false)
       setItemToDelete(null)
     } catch (err) {
@@ -412,27 +380,26 @@ export default function ContentManagementPage() {
                   ) : (
                     filteredClaims.map((claim) => {
                       const isExpanded = expandedClaims.has(claim.id)
-                      const evidenceCount = claim.evidence.length
-                      const perspectivesCount = claim.perspectives.length
+                      const evidenceCount = claim.evidence?.length || 0
+                      const perspectivesCount = claim.perspectives?.length || 0
 
                       return (
                         <React.Fragment key={claim.id}>
                           {/* Main Claim Row */}
                           <tr className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                             <td className="py-3 px-4">
-                              {(evidenceCount > 0 || perspectivesCount > 0) && (
-                                <button
-                                  onClick={() => toggleExpand(claim.id)}
-                                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-                                  aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                                >
-                                  {isExpanded ? (
-                                    <ChevronUpIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                                  ) : (
-                                    <ChevronDownIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                                  )}
-                                </button>
-                              )}
+                              <button
+                                onClick={() => toggleExpand(claim.id)}
+                                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                                aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                                disabled={claim._loadingContent}
+                              >
+                                {isExpanded ? (
+                                  <ChevronUpIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                                ) : (
+                                  <ChevronDownIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                                )}
+                              </button>
                             </td>
                             <td className="py-3 px-4">
                               <div className="group relative">
@@ -440,7 +407,7 @@ export default function ContentManagementPage() {
                                   href={`/claims/${claim.id}`}
                                   className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                                 >
-                                  {claim.title}
+                                  {claim.title}{claim.titleEdited ? ' (edited)' : ''}
                                 </Link>
                                 {claim.description && (
                                   <div className="absolute left-0 top-full mt-2 w-96 p-3 bg-gray-900 dark:bg-gray-800 text-white dark:text-gray-100 text-sm rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border border-gray-700">
@@ -454,7 +421,7 @@ export default function ContentManagementPage() {
                                 )}
                               </div>
                               <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                {truncateDescription(claim.description, 60)}
+                                {truncateDescription(claim.description, 60)}{claim.descriptionEdited ? ' (edited)' : ''}
                               </div>
                             </td>
                             <td className="py-3 px-4">
@@ -510,6 +477,16 @@ export default function ContentManagementPage() {
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => {
+                                    setClaimToEdit(claim)
+                                    setEditModalOpen(true)
+                                  }}
+                                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium flex items-center gap-1"
+                                >
+                                  <EditIcon className="w-4 h-4" />
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => {
                                     setItemToDelete({ id: claim.id, type: 'claim', title: claim.title })
                                     setDeleteModalOpen(true)
                                   }}
@@ -526,15 +503,20 @@ export default function ContentManagementPage() {
                           {isExpanded && (
                             <tr>
                               <td colSpan={8} className="py-4 px-4 bg-gray-50 dark:bg-gray-900/50">
-                                <div className="space-y-6">
-                                  {/* Evidence Section */}
-                                  {evidenceCount > 0 && (
+                                {claim._loadingContent ? (
+                                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                    Loading content...
+                                  </div>
+                                ) : (
+                                  <div className="space-y-6">
+                                    {/* Evidence Section */}
+                                    {evidenceCount > 0 && claim.evidence && (
                                     <div>
                                       <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
                                         Evidence ({evidenceCount})
                                       </h3>
                                       <div className="space-y-3">
-                                        {claim.evidence.map((evidence) => (
+                                        {claim.evidence?.map((evidence) => (
                                           <div
                                             key={evidence.id}
                                             className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
@@ -607,14 +589,14 @@ export default function ContentManagementPage() {
                                     </div>
                                   )}
 
-                                  {/* Perspectives Section */}
-                                  {perspectivesCount > 0 && (
-                                    <div>
-                                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                                        Perspectives ({perspectivesCount})
-                                      </h3>
-                                      <div className="space-y-3">
-                                        {claim.perspectives.map((perspective) => (
+                                    {/* Perspectives Section */}
+                                    {perspectivesCount > 0 && claim.perspectives && (
+                                      <div>
+                                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                                          Perspectives ({perspectivesCount})
+                                        </h3>
+                                        <div className="space-y-3">
+                                          {claim.perspectives.map((perspective) => (
                                           <div
                                             key={perspective.id}
                                             className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
@@ -686,12 +668,13 @@ export default function ContentManagementPage() {
                                     </div>
                                   )}
 
-                                  {evidenceCount === 0 && perspectivesCount === 0 && (
-                                    <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                                      No evidence or perspectives for this claim
-                                    </div>
-                                  )}
-                                </div>
+                                    {evidenceCount === 0 && perspectivesCount === 0 && !claim._loadingContent && (
+                                      <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                                        No evidence or perspectives for this claim
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </td>
                             </tr>
                           )}
@@ -705,6 +688,25 @@ export default function ContentManagementPage() {
           </>
         )}
       </div>
+
+      {/* Edit Claim Modal */}
+      {claimToEdit && (
+        <EditClaimModal
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false)
+            setClaimToEdit(null)
+          }}
+          onConfirm={async () => {
+            // Refresh the data after editing (only claims, not content)
+            await fetchClaims()
+            setEditModalOpen(false)
+            setClaimToEdit(null)
+          }}
+          claimId={claimToEdit.id}
+          claim={claimToEdit}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       <Modal

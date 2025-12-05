@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { ProfileEditModal } from '@/components/profile/ProfileEditModal'
 import { useTheme } from '@/components/providers/ThemeProvider'
 import { UserListModal } from '@/components/users/UserListModal'
+import { EditClaimModal } from '@/components/claims/EditClaimModal'
 
 const profileButtons = [
   // { id: 'saved', label: 'Saved' },
@@ -33,6 +34,8 @@ export default function ProfilePage() {
   const [followingCount, setFollowingCount] = useState(0)
   const [isFollowersModalOpen, setIsFollowersModalOpen] = useState(false)
   const [isFollowingModalOpen, setIsFollowingModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [claimToEdit, setClaimToEdit] = useState<Claim | null>(null)
 
   // Fetch user's claims (all statuses: pending, rejected, approved)
   const fetchUserClaims = async () => {
@@ -416,27 +419,12 @@ export default function ProfilePage() {
               <div className="mt-6 sm:mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 {claims.map((claim) => (
                   <ContentCard 
-                    key={claim.id} 
+                    key={claim.id}
                     item={claim} 
-                    showDelete={true}
-                    onDelete={async (itemId: string, itemType: 'claim' | 'evidence' | 'perspective') => {
-                      try {
-                        const response = await fetch(`/api/claims/${itemId}`, {
-                          method: 'DELETE',
-                          credentials: 'include',
-                        })
-
-                        if (!response.ok) {
-                          const data = await response.json()
-                          throw new Error(data.error || 'Failed to delete')
-                        }
-
-                        // Refresh the list to show updated data
-                        await fetchUserClaims()
-                      } catch (err) {
-                        console.error('Delete error:', err)
-                        alert(err instanceof Error ? err.message : 'Failed to delete claim')
-                      }
+                    showEdit={true}
+                    onEdit={(itemId: string) => {
+                      setClaimToEdit(claim)
+                      setEditModalOpen(true)
                     }}
                   />
                 ))}
@@ -575,6 +563,25 @@ export default function ProfilePage() {
           userId={user.id}
           type="following"
           title="Following"
+        />
+      )}
+
+      {/* Edit Claim Modal */}
+      {claimToEdit && (
+        <EditClaimModal
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false)
+            setClaimToEdit(null)
+          }}
+          onConfirm={async () => {
+            // Refresh the list to show updated data
+            await fetchUserClaims()
+            setEditModalOpen(false)
+            setClaimToEdit(null)
+          }}
+          claimId={claimToEdit.id}
+          claim={claimToEdit}
         />
       )}
     </div>

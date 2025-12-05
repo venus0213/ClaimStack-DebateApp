@@ -8,7 +8,7 @@ import type { Evidence as EvidenceType, Perspective as PerspectiveType } from '@
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { VoteButtons } from '@/components/voting/VoteButtons'
-import { ShareIcon, UserIcon, TrashIcon, ClockIcon, FlagIcon, CheckIcon } from '@/components/ui/Icons'
+import { ShareIcon, UserIcon, TrashIcon, ClockIcon, FlagIcon, CheckIcon, EditIcon } from '@/components/ui/Icons'
 import { ProtectedLink } from '@/components/ui/ProtectedLink'
 import { Modal } from '@/components/ui/Modal'
 import { useVote } from '@/hooks/useVote'
@@ -24,8 +24,10 @@ interface ContentCardProps {
   isFollowing?: boolean
   href?: string
   claimId?: string // For evidence/perspective to update claim score
-  showDelete?: boolean // Show delete button (for profile page)
+  showDelete?: boolean // Show delete button (for profile page - evidence/perspectives only)
   onDelete?: (itemId: string, itemType: 'claim' | 'evidence' | 'perspective') => void // Delete callback
+  showEdit?: boolean // Show edit button (for profile page - claims only)
+  onEdit?: (itemId: string) => void // Edit callback
 }
 
 // Type guard to check if item is Evidence
@@ -48,12 +50,21 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   claimId,
   showDelete = false,
   onDelete,
+  showEdit = false,
+  onEdit,
 }) => {
   const isEvidenceItem = isEvidence(item)
   const isPerspectiveItem = isPerspective(item)
   const isClaimItem = !isEvidenceItem && !isPerspectiveItem
+  const claimItem = isClaimItem ? (item as Claim) : null
   const title = item.title || ''
+  const displayTitle = isClaimItem && claimItem?.titleEdited 
+    ? `${title} (edited)`
+    : title
   const description = isPerspectiveItem ? item.body : (isEvidenceItem ? item.description : item.description)
+  const displayDescription = isClaimItem && claimItem?.descriptionEdited && description
+    ? `${description} (edited)`
+    : description
   const user = item.user
   const itemId = item.id
   const { user: currentUser } = useAuth()
@@ -247,6 +258,19 @@ export const ContentCard: React.FC<ContentCardProps> = ({
               <span className="capitalize">{(item as Claim).status}</span>
             </span>
           )}
+          {showEdit && onEdit && (
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onEdit(itemId)
+              }}
+              className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors p-1"
+              title="Edit claim"
+            >
+              <EditIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+          )}
           {showDelete && onDelete && (
             <button
               onClick={(e) => {
@@ -266,16 +290,16 @@ export const ContentCard: React.FC<ContentCardProps> = ({
         </div>
       </div>
 
-      {title && (
+      {displayTitle && (
         titleHref ? (
           <ProtectedLink href={titleHref}>
             <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-2 leading-tight cursor-pointer">
-              {title}
+              {displayTitle}
             </h3>
           </ProtectedLink>
         ) : (
           <h3 className="text-base sm:text-lg lg:text-xl font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-2 leading-tight">
-            {title}
+            {displayTitle}
           </h3>
         )
       )}
@@ -287,7 +311,7 @@ export const ContentCard: React.FC<ContentCardProps> = ({
               ref={descriptionRef}
               className={`text-gray-600 dark:text-gray-300 text-xs sm:text-sm font-normal leading-relaxed ${!isDescriptionExpanded ? 'line-clamp-2 pr-14' : ''}`}
             >
-              {description}
+              {displayDescription}
               {isDescriptionExpanded && (
                 <span className="ml-1">
                   <button
