@@ -9,12 +9,9 @@ const checkEmailSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Ensure database connection
     await connectDB()
 
     const body = await request.json()
-
-    // Validate input
     const validationResult = checkEmailSchema.safeParse(body)
     if (!validationResult.success) {
       return NextResponse.json(
@@ -24,8 +21,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { email } = validationResult.data
-
-    // Check if user exists by email
     const user = await User.findOne({ email: email.toLowerCase() })
 
     return NextResponse.json(

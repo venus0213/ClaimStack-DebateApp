@@ -13,12 +13,9 @@ const resetPasswordSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Ensure database connection
     await connectDB()
 
     const body = await request.json()
-
-    // Validate input
     const validationResult = resetPasswordSchema.safeParse(body)
     if (!validationResult.success) {
       return NextResponse.json(
@@ -28,14 +25,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { token, email, password } = validationResult.data
-
-    // Find verification token
     const verificationToken = await VerificationToken.findOne({
       identifier: email.toLowerCase(),
       token,
     })
 
-    // Check if token exists
     if (!verificationToken) {
       return NextResponse.json(
         { error: 'Invalid or expired reset token' },
@@ -43,9 +37,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if token has expired
     if (verificationToken.expires < new Date()) {
-      // Delete expired token
       await VerificationToken.deleteOne({ _id: verificationToken._id })
       return NextResponse.json(
         { error: 'Reset token has expired. Please request a new one.' },
@@ -53,7 +45,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find user
     const user = await User.findOne({ email: email.toLowerCase() })
     if (!user) {
       return NextResponse.json(
@@ -62,14 +53,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Hash new password
     const passwordHash = await hashPassword(password)
 
-    // Update user password
     user.passwordHash = passwordHash
     await user.save()
 
-    // Delete used token
     await VerificationToken.deleteOne({ _id: verificationToken._id })
 
     return NextResponse.json(

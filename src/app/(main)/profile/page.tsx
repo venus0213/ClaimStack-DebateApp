@@ -13,7 +13,6 @@ import { UserListModal } from '@/components/users/UserListModal'
 import { EditClaimModal } from '@/components/claims/EditClaimModal'
 
 const profileButtons = [
-  // { id: 'saved', label: 'Saved' },
   { id: 'claims', label: 'My Claims' },
   { id: 'evidence', label: 'My Evidence & Perspective' },
   { id: 'following', label: 'My Recommended' },
@@ -37,7 +36,6 @@ export default function ProfilePage() {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [claimToEdit, setClaimToEdit] = useState<Claim | null>(null)
 
-  // Fetch user's claims (all statuses: pending, rejected, approved)
   const fetchUserClaims = async () => {
     if (!user?.id) {
       setLoading(false)
@@ -48,7 +46,6 @@ export default function ProfilePage() {
       setLoading(true)
       setError(null)
       
-      // Fetch all claims for the user (no status filter to get pending, rejected, and approved)
       const claimsParams = new URLSearchParams({
         userId: user.id,
         sortBy: 'newest',
@@ -61,7 +58,6 @@ export default function ProfilePage() {
       if (claimsResponse.ok) {
         const claimsData = await claimsResponse.json()
         if (claimsData.success && claimsData.claims) {
-          // Sort by creation date (most recent first)
           const sortedClaims = [...claimsData.claims].sort((a, b) => {
             const dateA = new Date(a.createdAt).getTime()
             const dateB = new Date(b.createdAt).getTime()
@@ -82,7 +78,6 @@ export default function ProfilePage() {
     }
   }
 
-  // Fetch user's evidence and perspectives (all statuses: pending, rejected, approved)
   const fetchUserEvidenceAndPerspectives = async () => {
     if (!user?.id) {
       setLoading(false)
@@ -93,7 +88,6 @@ export default function ProfilePage() {
       setLoading(true)
       setError(null)
       
-      // Fetch evidence
       const evidenceParams = new URLSearchParams({
         userId: user.id,
       })
@@ -101,7 +95,6 @@ export default function ProfilePage() {
         credentials: 'include',
       })
       
-      // Fetch perspectives
       const perspectivesParams = new URLSearchParams({
         userId: user.id,
       })
@@ -111,7 +104,6 @@ export default function ProfilePage() {
 
       const allItems: (Evidence | Perspective)[] = []
 
-      // Process evidence
       if (evidenceResponse.ok) {
         const evidenceData = await evidenceResponse.json()
         if (evidenceData.success && evidenceData.evidence) {
@@ -119,7 +111,6 @@ export default function ProfilePage() {
         }
       }
 
-      // Process perspectives
       if (perspectivesResponse.ok) {
         const perspectivesData = await perspectivesResponse.json()
         if (perspectivesData.success && perspectivesData.perspectives) {
@@ -127,7 +118,6 @@ export default function ProfilePage() {
         }
       }
 
-      // Sort by creation date (most recent first)
       allItems.sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime()
         const dateB = new Date(b.createdAt).getTime()
@@ -143,7 +133,6 @@ export default function ProfilePage() {
     }
   }
 
-  // Fetch claims that the user has upvoted (from other users)
   const fetchUpvotedClaims = async () => {
     if (!user?.id) {
       setLoading(false)
@@ -154,7 +143,6 @@ export default function ProfilePage() {
       setLoading(true)
       setError(null)
       
-      // Fetch claims upvoted by the current user (excluding their own claims)
       const claimsParams = new URLSearchParams({
         upvotedBy: 'me',
         sortBy: 'newest',
@@ -167,7 +155,6 @@ export default function ProfilePage() {
       if (claimsResponse.ok) {
         const claimsData = await claimsResponse.json()
         if (claimsData.success && claimsData.claims) {
-          // Sort by creation date (most recent first)
           const sortedClaims = [...claimsData.claims].sort((a, b) => {
             const dateA = new Date(a.createdAt).getTime()
             const dateB = new Date(b.createdAt).getTime()
@@ -188,12 +175,10 @@ export default function ProfilePage() {
     }
   }
 
-  // Fetch follower and following counts
   const fetchFollowCounts = async () => {
     if (!user?.id) return
 
     try {
-      // Fetch followers count (countOnly query parameter for efficiency)
       const followersResponse = await fetch(`/api/users/${user.id}/followers?countOnly=true`, {
         credentials: 'include',
       })
@@ -204,7 +189,6 @@ export default function ProfilePage() {
         }
       }
 
-      // Fetch following count (countOnly query parameter for efficiency)
       const followingResponse = await fetch(`/api/users/${user.id}/following?countOnly=true`, {
         credentials: 'include',
       })
@@ -238,21 +222,17 @@ export default function ProfilePage() {
   const logout = async () => {
     try {
       await logoutUser()
-      // Redirect to login page after logout
       router.push('/')
     } catch (error) {
       console.error('Logout error:', error)
-      // Still redirect even if logout fails
       router.push('/login')
     }
   }
 
   const handleProfileUpdate = async (updatedUser: User) => {
-    // Refresh the session to get updated user data
     await checkSession()
   }
 
-  // Show loading state while checking auth
   if (authLoading) {
     return (
       <div className="bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center transition-colors">
@@ -261,7 +241,6 @@ export default function ProfilePage() {
     )
   }
 
-  // Show message if not authenticated
   if (!user) {
     return (
       <div className="bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center transition-colors">
@@ -348,7 +327,6 @@ export default function ProfilePage() {
               {user.bio && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{user.bio}</p>
               )}
-              {/* Follower and Following counts */}
               <div className="flex items-center gap-4 sm:gap-6 mt-3">
                 <button
                   onClick={() => setIsFollowersModalOpen(true)}
@@ -394,7 +372,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Content based on active tab */}
         {activeTab === 'claims' && (
           <>
             {loading ? (
@@ -435,7 +412,6 @@ export default function ProfilePage() {
           </>
         )}
 
-        {/* Evidence and Perspective tab */}
         {activeTab === 'evidence' && (
           <>
             {loading ? (
@@ -483,7 +459,6 @@ export default function ProfilePage() {
                             throw new Error(data.error || 'Failed to delete')
                           }
 
-                          // Refresh the list to show updated data
                           await fetchUserEvidenceAndPerspectives()
                         } catch (err) {
                           console.error('Delete error:', err)
@@ -498,7 +473,6 @@ export default function ProfilePage() {
           </>
         )}
 
-        {/* Following tab - shows claims from other users that the current user has upvoted */}
         {activeTab === 'following' && (
           <>
             {loading ? (
@@ -536,7 +510,6 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Profile Edit Modal */}
       {user && (
         <ProfileEditModal
           isOpen={isEditModalOpen}
@@ -546,7 +519,6 @@ export default function ProfilePage() {
         />
       )}
 
-      {/* Followers Modal */}
       {user && (
         <UserListModal
           isOpen={isFollowersModalOpen}
@@ -557,7 +529,6 @@ export default function ProfilePage() {
         />
       )}
 
-      {/* Following Modal */}
       {user && (
         <UserListModal
           isOpen={isFollowingModalOpen}
@@ -568,7 +539,6 @@ export default function ProfilePage() {
         />
       )}
 
-      {/* Edit Claim Modal */}
       {claimToEdit && (
         <EditClaimModal
           isOpen={editModalOpen}
@@ -577,7 +547,6 @@ export default function ProfilePage() {
             setClaimToEdit(null)
           }}
           onConfirm={async () => {
-            // Refresh the list to show updated data
             await fetchUserClaims()
             setEditModalOpen(false)
             setClaimToEdit(null)

@@ -107,7 +107,7 @@ export interface Category {
 export interface Notification {
   id: string
   userId: string
-  type: 'new_evidence' | 'new_perspective' | 'new_comment' | 'evidence_approved' | 'evidence_rejected' | 'perspective_approved' | 'perspective_rejected' | 'claim_updated' | 'new_follower' | 'vote_received'
+  type: 'new_evidence' | 'new_perspective' | 'new_comment' | 'evidence_approved' | 'evidence_rejected' | 'perspective_approved' | 'perspective_rejected' | 'claim_updated' | 'new_follower' | 'vote_received' | 'claim_submitted' | 'claim_approved' | 'new_claim'
   title: string
   message?: string
   link?: string

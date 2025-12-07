@@ -13,12 +13,9 @@ const forgotPasswordSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Ensure database connection
     await connectDB()
 
     const body = await request.json()
-
-    // Validate input
     const validationResult = forgotPasswordSchema.safeParse(body)
     if (!validationResult.success) {
       return NextResponse.json(
@@ -28,31 +25,23 @@ export async function POST(request: NextRequest) {
     }
 
     const { email } = validationResult.data
-
-    // Find user by email
     const user = await User.findOne({ email: email.toLowerCase() })
 
-    // Always return success to prevent email enumeration attacks
-    // But only send email if user exists
     if (user) {
-      // Generate reset token
       const resetToken = nanoid(32)
       const expiresAt = new Date()
-      expiresAt.setHours(expiresAt.getHours() + 24) // Token expires in 24 hours
+      expiresAt.setHours(expiresAt.getHours() + 24)
 
-      // Delete any existing reset tokens for this email
       await VerificationToken.deleteMany({
         identifier: email.toLowerCase(),
       })
 
-      // Create new reset token
       await VerificationToken.create({
         identifier: email.toLowerCase(),
         token: resetToken,
         expires: expiresAt,
       })
 
-      // Send password reset email
       try {
         const emailContent = generatePasswordResetEmail({
           firstName: user.firstName,
@@ -70,11 +59,9 @@ export async function POST(request: NextRequest) {
         })
       } catch (emailError) {
         console.error('Failed to send password reset email:', emailError)
-        // Don't expose email sending errors to the user
       }
     }
 
-    // Always return success message (security best practice)
     return NextResponse.json(
       {
         message: 'If an account with that email exists, we have sent a password reset link.',

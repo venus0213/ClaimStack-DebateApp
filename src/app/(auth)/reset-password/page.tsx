@@ -24,7 +24,6 @@ export default function ResetPasswordPage() {
   const [token, setToken] = useState<string | null>(null)
   const [email, setEmail] = useState<string | null>(null)
 
-  // Get token and email from URL params
   useEffect(() => {
     const tokenParam = searchParams.get('token')
     const emailParam = searchParams.get('email')
@@ -32,14 +31,12 @@ export default function ResetPasswordPage() {
     setEmail(emailParam)
   }, [searchParams])
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       router.push('/browse')
     }
   }, [isAuthenticated, router])
 
-  // Validate token and email on mount
   useEffect(() => {
     if (!token || !email) {
       // setErrors({ general: 'Invalid reset link. Please request a new password reset.' })
@@ -97,7 +94,6 @@ export default function ResetPasswordPage() {
       setIsSuccess(true)
       addToast('Password reset successfully! You can now log in.', 'success')
 
-      // Redirect to login after 2 seconds
       setTimeout(() => {
         router.push('/login')
       }, 2000)
@@ -129,7 +125,6 @@ export default function ResetPasswordPage() {
 
       {/* Right Side - Reset Password Form */}
       <div className="w-full lg:w-1/3 flex flex-col p-4 sm:p-6 lg:p-8">
-        {/* Logo - Top Center of Right Side */}
         <div className="flex justify-center pt-12 lg:pt-20">
           <div className="flex items-center space-x-2">
             <Image

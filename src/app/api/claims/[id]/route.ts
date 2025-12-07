@@ -10,8 +10,10 @@ import { Vote } from '@/lib/db/models'
 import { PerspectiveVote } from '@/lib/db/models'
 import { EvidenceFollow } from '@/lib/db/models'
 import { PerspectiveFollow } from '@/lib/db/models'
+import { NotificationType } from '@/lib/db/models'
 import { updateClaimScore } from '@/lib/utils/claimScore'
 import { deleteFile } from '@/lib/storage/upload'
+import { createNotification, notifyAllUsers } from '@/lib/utils/notifications'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -401,6 +403,34 @@ export async function PATCH(
       reason: reason,
       metadata: metadata || {},
     })
+
+    // Notify user if claim is approved
+    if (newStatus === ClaimStatus.APPROVED) {
+      const claimUserId = claim.userId instanceof mongoose.Types.ObjectId
+        ? claim.userId.toString()
+        : (claim.userId as any)?._id?.toString() || (claim.userId as any).toString()
+
+      // Notify the claim owner
+      createNotification({
+        userId: claimUserId,
+        type: NotificationType.CLAIM_APPROVED,
+        title: 'Your claim has been approved',
+        message: `"${claim.title}" has been approved and is now live on the platform`,
+        link: `/claims/${claim._id.toString()}`,
+      }).catch((error) => {
+        console.error('Error notifying user about claim approval:', error)
+      })
+
+      // Notify all users about the new claim (async, non-blocking)
+      notifyAllUsers({
+        type: NotificationType.NEW_CLAIM,
+        title: 'New claim published',
+        message: `"${claim.title}" has been published`,
+        link: `/claims/${claim._id.toString()}`,
+      }).catch((error) => {
+        console.error('Error notifying all users about new claim:', error)
+      })
+    }
 
     // Populate claim with user and category for response
     await claim.populate('userId', 'username email firstName lastName avatarUrl')

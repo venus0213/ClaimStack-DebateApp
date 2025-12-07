@@ -13,12 +13,9 @@ const loginSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Ensure database connection
     await connectDB()
 
     const body = await request.json()
-    
-    // Validate input
     const validationResult = loginSchema.safeParse(body)
     if (!validationResult.success) {
       return NextResponse.json(
@@ -28,12 +25,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password } = validationResult.data
-
-    // Find user by email or username
     const user = await User.findOne({
       $or: [
         { email: email.toLowerCase() },
-        { username: email }, // Allow login with username too
+        { username: email },
       ],
     })
 
@@ -44,7 +39,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify password
     const isValidPassword = await verifyPassword(password, user.passwordHash)
     if (!isValidPassword) {
       return NextResponse.json(
@@ -53,7 +47,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create session
     const sessionToken = await createSession(user._id.toString(), {
       userId: user._id.toString(),
       email: user.email,
@@ -61,13 +54,12 @@ export async function POST(request: NextRequest) {
       role: user.role,
     })
 
-    // Set cookie
     const cookieStore = await cookies()
     cookieStore.set('claimstack_session', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
       path: '/',
     })
 

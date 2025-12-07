@@ -24,7 +24,6 @@ export default function SignupPage() {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       router.push('/browse')

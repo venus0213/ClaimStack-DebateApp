@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/db/mongoose'
 import { requireAuth } from '@/lib/auth/middleware'
 import { UserFollow } from '@/lib/db/models'
+import { NotificationType } from '@/lib/db/models'
+import { createNotification } from '@/lib/utils/notifications'
 import mongoose from 'mongoose'
 
 export async function POST(
@@ -71,6 +73,18 @@ export async function POST(
         followingId,
       })
       isFollowing = true
+
+      // Notify the followed user about the new follower
+      const followerUsername = user.username || 'Someone'
+      createNotification({
+        userId: followingUserId,
+        type: NotificationType.NEW_FOLLOWER,
+        title: 'New follower',
+        message: `@${followerUsername} started following you`,
+        link: `/profile/${user.userId}`,
+      }).catch((error) => {
+        console.error('Error notifying user about new follower:', error)
+      })
     }
 
     return NextResponse.json({

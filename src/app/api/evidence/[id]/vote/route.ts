@@ -3,8 +3,10 @@ import connectDB from '@/lib/db/mongoose'
 import { requireAuth } from '@/lib/auth/middleware'
 import { Evidence } from '@/lib/db/models'
 import { Vote, VoteType } from '@/lib/db/models'
+import { NotificationType } from '@/lib/db/models'
 import { Claim } from '@/lib/db/models'
 import { updateClaimScore } from '@/lib/utils/claimScore'
+import { createNotification } from '@/lib/utils/notifications'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -157,6 +159,36 @@ export async function POST(
     // Update score (upvotes - downvotes)
     evidence.score = evidence.upvotes - evidence.downvotes
     await evidence.save()
+
+    // Notify evidence owner about vote (only if it's a new vote, not if they're updating their own vote)
+    const evidenceOwnerId = evidence.userId instanceof mongoose.Types.ObjectId
+      ? evidence.userId.toString()
+      : (evidence.userId as any)?._id?.toString() || (evidence.userId as any).toString()
+
+    const voterId = user.userId
+
+    // Only notify if it's a new vote and the voter is not the evidence owner
+    if (!existingVote && evidenceOwnerId !== voterId) {
+      // Populate evidence to get title
+      await evidence.populate('userId', 'username')
+      await evidence.populate('claimId', 'title')
+
+      const evidenceTitle = evidence.title || 'your evidence'
+      const claimTitle = evidence.claimId instanceof mongoose.Types.ObjectId
+        ? 'a claim'
+        : (evidence.claimId as any)?.title || 'a claim'
+      const voterUsername = user.username || 'Someone'
+
+      createNotification({
+        userId: evidenceOwnerId,
+        type: NotificationType.VOTE_RECEIVED,
+        title: `Your evidence received a ${voteType === 'upvote' ? 'Yes' : 'No'} vote`,
+        message: `@${voterUsername} ${voteType === 'upvote' ? 'upvoted' : 'downvoted'} your evidence "${evidenceTitle}" on "${claimTitle}"`,
+        link: `/claims/${evidence.claimId.toString()}`,
+      }).catch((error) => {
+        console.error('Error notifying evidence owner about vote:', error)
+      })
+    }
 
     // Update claim total score - this recalculates based on all evidence/perspectives
     const updatedTotalScore = await updateClaimScore(evidence.claimId)

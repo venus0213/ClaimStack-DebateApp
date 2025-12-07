@@ -11,6 +11,9 @@ export enum NotificationType {
   CLAIM_UPDATED = 'CLAIM_UPDATED',
   NEW_FOLLOWER = 'NEW_FOLLOWER',
   VOTE_RECEIVED = 'VOTE_RECEIVED',
+  CLAIM_SUBMITTED = 'CLAIM_SUBMITTED',
+  CLAIM_APPROVED = 'CLAIM_APPROVED',
+  NEW_CLAIM = 'NEW_CLAIM',
 }
 
 export interface INotification extends Document {

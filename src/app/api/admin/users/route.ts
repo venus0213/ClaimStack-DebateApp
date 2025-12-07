@@ -2,28 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/db/mongoose'
 import { User } from '@/lib/db/models'
 import { requireAdmin } from '@/lib/auth/middleware'
-import mongoose from 'mongoose'
 
 export async function GET(request: NextRequest) {
   try {
-    // Ensure database connection
     await connectDB()
 
-    // Check if user is admin
     const authResult = await requireAdmin(request)
     if (authResult.error) {
       return authResult.error
     }
 
-    // Get query parameters
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '50', 10)
     const skip = (page - 1) * limit
     const search = searchParams.get('search') || ''
-    const role = searchParams.get('role') // Optional role filter
+    const role = searchParams.get('role')
 
-    // Build query
     const query: any = {}
     
     if (search) {
@@ -39,7 +34,6 @@ export async function GET(request: NextRequest) {
       query.role = role.toUpperCase()
     }
 
-    // Fetch users
     const [users, total] = await Promise.all([
       User.find(query)
         .select('-passwordHash -__v')
@@ -50,7 +44,6 @@ export async function GET(request: NextRequest) {
       User.countDocuments(query),
     ])
 
-    // Transform to API format
     const formattedUsers = users.map((user: any) => ({
       id: user._id.toString(),
       email: user.email,

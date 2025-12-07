@@ -18,7 +18,6 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       router.push('/browse')
@@ -43,7 +42,6 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      // First, check if the email exists in the database
       const checkResponse = await fetch('/api/auth/check-email', {
         method: 'POST',
         headers: {
@@ -58,7 +56,6 @@ export default function ForgotPasswordPage() {
         throw new Error(checkData.error || 'Failed to verify email')
       }
 
-      // If email doesn't exist, show error and stop
       if (!checkData.exists) {
         setError('No account found with this email address. Please check your email and try again.')
         addToast('No account found with this email address.', 'error')
@@ -66,7 +63,6 @@ export default function ForgotPasswordPage() {
         return
       }
 
-      // Email exists, proceed with sending reset email
       const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: {

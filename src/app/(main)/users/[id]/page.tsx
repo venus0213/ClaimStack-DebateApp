@@ -30,7 +30,6 @@ export default function UserProfilePage() {
   const [contentLoading, setContentLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch user data
   const fetchUser = async () => {
     try {
       setLoading(true)
@@ -58,7 +57,6 @@ export default function UserProfilePage() {
     }
   }
 
-  // Fetch user's claims
   const fetchUserClaims = async () => {
     if (!userId) return
 
@@ -78,7 +76,6 @@ export default function UserProfilePage() {
       if (claimsResponse.ok) {
         const claimsData = await claimsResponse.json()
         if (claimsData.success && claimsData.claims) {
-          // Sort by creation date (most recent first)
           const sortedClaims = [...claimsData.claims].sort((a, b) => {
             const dateA = new Date(a.createdAt).getTime()
             const dateB = new Date(b.createdAt).getTime()
@@ -99,7 +96,6 @@ export default function UserProfilePage() {
     }
   }
 
-  // Fetch user's evidence
   const fetchUserEvidence = async () => {
     if (!userId) return
 
@@ -116,9 +112,7 @@ export default function UserProfilePage() {
       if (evidenceResponse.ok) {
         const evidenceData = await evidenceResponse.json()
         if (evidenceData.success && evidenceData.evidence) {
-          // Filter only approved evidence for public profiles
           const approvedEvidence = evidenceData.evidence.filter((e: Evidence) => e.status === 'approved')
-          // Sort by creation date (most recent first)
           const sortedEvidence = [...approvedEvidence].sort((a, b) => {
             const dateA = new Date(a.createdAt).getTime()
             const dateB = new Date(b.createdAt).getTime()
@@ -139,7 +133,6 @@ export default function UserProfilePage() {
     }
   }
 
-  // Fetch user's perspectives
   const fetchUserPerspectives = async () => {
     if (!userId) return
 
@@ -177,10 +170,8 @@ export default function UserProfilePage() {
     }
   }
 
-  // Handle follow/unfollow
   const handleFollow = async () => {
     if (!currentUser) {
-      // Redirect to login or show message
       return
     }
 
@@ -316,7 +307,6 @@ export default function UserProfilePage() {
           )}
         </div>
 
-        {/* Tabs */}
         <div className="flex flex-wrap gap-2 sm:gap-4 mb-6">
           {profileTabs.map((tab) => (
             <button
@@ -333,7 +323,6 @@ export default function UserProfilePage() {
           ))}
         </div>
 
-        {/* Content based on active tab */}
         {activeTab === 'claims' && (
           <>
             {contentLoading ? (

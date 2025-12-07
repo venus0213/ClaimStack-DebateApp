@@ -6,6 +6,8 @@ import { ClaimVote, VoteType } from '@/lib/db/models'
 import { Flag } from '@/lib/db/models'
 import { uploadFile } from '@/lib/storage/upload'
 import { generateClaimSummary, generateSEOMetadata } from '@/lib/ai/summarize'
+import { notifyAdmins } from '@/lib/utils/notifications'
+import { NotificationType } from '@/lib/db/models'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -513,6 +515,16 @@ export async function POST(request: NextRequest) {
       fileSize,
       fileType,
       titleEdited: false, // Not edited yet
+    })
+
+    // Notify admins about new claim submission (async, non-blocking)
+    notifyAdmins({
+      type: NotificationType.CLAIM_SUBMITTED,
+      title: 'New claim submitted for review',
+      message: `"${title}" has been submitted and is pending approval`,
+      link: `/moderation?claimId=${claim._id.toString()}`,
+    }).catch((error) => {
+      console.error('Error notifying admins about claim submission:', error)
     })
 
     // Populate claim with user and category

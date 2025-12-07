@@ -21,7 +21,6 @@ export default function LoginPage() {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       const redirect = searchParams.get('redirect') || '/browse'
@@ -77,7 +76,6 @@ export default function LoginPage() {
 
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/3 flex flex-col p-4 sm:p-6 lg:p-8">
-        {/* Logo - Top Center of Right Side */}
         <div className="flex justify-center pt-12 lg:pt-20">
           <div className="flex items-center space-x-2">
             <Image

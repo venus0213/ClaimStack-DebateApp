@@ -46,22 +46,18 @@ export default function UserManagementPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
 
-  // Modals state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [roleModalOpen, setRoleModalOpen] = useState(false)
   const [passwordModalOpen, setPasswordModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
-  // Form states
   const [newRole, setNewRole] = useState<string>('')
   const [newPassword, setNewPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   
-  // Expanded users for mobile view
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set())
 
-  // Check if user is ADMIN, redirect if not
   useEffect(() => {
     if (!authLoading) {
       if (!currentUser) {
@@ -75,7 +71,6 @@ export default function UserManagementPage() {
     }
   }, [currentUser, authLoading, router])
 
-  // Fetch users function
   const fetchUsers = React.useCallback(async () => {
     if (!currentUser || currentUser.role?.toUpperCase() !== 'ADMIN') return
 
@@ -121,7 +116,6 @@ export default function UserManagementPage() {
     }
   }, [authLoading, currentUser, fetchUsers])
 
-  // Don't render if still loading or user is not admin
   if (authLoading) {
     return (
       <div className="bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center transition-colors">
@@ -196,7 +190,6 @@ export default function UserManagementPage() {
   const handlePasswordChange = async () => {
     if (!selectedUser || !newPassword) return
 
-    // Validate password
     if (newPassword.length < 8) {
       setPasswordError('Password must be at least 8 characters')
       return
@@ -328,28 +321,24 @@ export default function UserManagementPage() {
           </div>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <p className="text-xs sm:text-sm text-red-600 dark:text-red-400">{error}</p>
           </div>
         )}
 
-        {/* Loading State */}
         {isLoading && (
           <div className="text-center py-6 sm:py-8">
             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Loading users...</p>
           </div>
         )}
 
-        {/* Users Display */}
         {!isLoading && (
           <>
             <div className="mb-3 sm:mb-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Showing {users.length} of {total} users
             </div>
             
-            {/* Mobile View - Card Layout */}
             <div className="block md:hidden space-y-3">
               {users.length === 0 ? (
                 <Card className="p-6 rounded-lg text-center">
@@ -360,7 +349,6 @@ export default function UserManagementPage() {
                   const isExpanded = expandedUsers.has(user.id)
                   return (
                     <Card key={user.id} className="p-3 sm:p-4 rounded-lg overflow-hidden">
-                      {/* User Summary - Clickable */}
                       <button
                         onClick={() => toggleUserExpand(user.id)}
                         className="w-full flex items-center gap-3 text-left hover:opacity-80 transition-opacity"
@@ -397,10 +385,8 @@ export default function UserManagementPage() {
                         </div>
                       </button>
 
-                      {/* Expanded Details */}
                       {isExpanded && (
                         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-                          {/* User Details */}
                           <div className="space-y-3">
                             <div>
                               <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email</div>
@@ -434,7 +420,6 @@ export default function UserManagementPage() {
                             )}
                           </div>
 
-                          {/* Actions */}
                           <div className="flex flex-col gap-2 pt-2">
                             <Button
                               variant="outline"
@@ -480,7 +465,6 @@ export default function UserManagementPage() {
               )}
             </div>
 
-            {/* Desktop View - Table Layout */}
             <Card className="hidden md:block p-4 sm:p-6 rounded-lg lg:rounded-[32px] overflow-x-auto">
               <table className="w-full min-w-[640px]">
                 <thead>
@@ -577,7 +561,6 @@ export default function UserManagementPage() {
               </table>
             </Card>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="mt-4 sm:mt-6 flex items-center justify-center gap-2">
                 <Button
@@ -607,7 +590,6 @@ export default function UserManagementPage() {
         )}
       </div>
 
-      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={deleteModalOpen}
         onClose={() => {
@@ -640,7 +622,6 @@ export default function UserManagementPage() {
         </div>
       </Modal>
 
-      {/* Change Role Modal */}
       <Modal
         isOpen={roleModalOpen}
         onClose={() => {
@@ -685,7 +666,6 @@ export default function UserManagementPage() {
         </div>
       </Modal>
 
-      {/* Change Password Modal */}
       <Modal
         isOpen={passwordModalOpen}
         onClose={() => {

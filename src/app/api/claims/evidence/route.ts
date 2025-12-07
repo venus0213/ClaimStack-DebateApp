@@ -3,9 +3,11 @@ import connectDB from '@/lib/db/mongoose'
 import { requireAuth } from '@/lib/auth/middleware'
 import { Claim } from '@/lib/db/models'
 import { Evidence, EvidenceType, Position, EvidenceStatus } from '@/lib/db/models'
+import { NotificationType } from '@/lib/db/models'
 import { fetchOEmbed } from '@/lib/oembed/client'
 import { updateClaimScore } from '@/lib/utils/claimScore'
 import { generateEvidenceSummary } from '@/lib/ai/summarize'
+import { createNotification } from '@/lib/utils/notifications'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -324,10 +326,42 @@ export async function POST(request: NextRequest) {
     // Populate evidence with user and claim
     const populatedEvidence = await Evidence.findById(evidence._id)
       .populate('userId', 'username email firstName lastName avatarUrl')
-      .populate('claimId', 'title description')
+      .populate('claimId', 'title description userId')
 
     if (!populatedEvidence) {
       throw new Error('Failed to retrieve created evidence')
+    }
+
+    // Notify claim owner about new evidence (don't notify if owner is the one who added it)
+    // Get claim to find owner
+    const claim = await Claim.findById(claimId).select('userId title').lean()
+    
+    if (claim) {
+      const claimOwnerId = claim.userId instanceof mongoose.Types.ObjectId
+        ? claim.userId.toString()
+        : (claim.userId as any)?.toString()
+
+      const evidenceCreatorId = populatedEvidence.userId instanceof mongoose.Types.ObjectId
+        ? populatedEvidence.userId.toString()
+        : (populatedEvidence.userId as any)?._id?.toString() || (populatedEvidence.userId as any).toString()
+
+      if (claimOwnerId && claimOwnerId !== evidenceCreatorId) {
+        const claimTitle = claim.title || 'your claim'
+        const evidenceTitle = populatedEvidence.title || 'New evidence'
+        const creatorUsername = populatedEvidence.userId instanceof mongoose.Types.ObjectId
+          ? 'Someone'
+          : (populatedEvidence.userId as any)?.username || 'Someone'
+
+        createNotification({
+          userId: claimOwnerId,
+          type: NotificationType.NEW_EVIDENCE,
+          title: 'New evidence added to your claim',
+          message: `@${creatorUsername} added new evidence "${evidenceTitle}" to "${claimTitle}"`,
+          link: `/claims/${claimId}`,
+        }).catch((error) => {
+          console.error('Error notifying claim owner about new evidence:', error)
+        })
+      }
     }
 
     // Get updated claim with recalculated score

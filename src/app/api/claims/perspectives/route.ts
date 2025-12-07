@@ -3,8 +3,10 @@ import connectDB from '@/lib/db/mongoose'
 import { requireAuth } from '@/lib/auth/middleware'
 import { Claim } from '@/lib/db/models'
 import { Perspective, Position, PerspectiveStatus } from '@/lib/db/models'
+import { NotificationType } from '@/lib/db/models'
 import { fetchOEmbed } from '@/lib/oembed/client'
 import { updateClaimScore } from '@/lib/utils/claimScore'
+import { createNotification } from '@/lib/utils/notifications'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -233,10 +235,42 @@ export async function POST(request: NextRequest) {
     // Populate perspective with user and claim
     const populatedPerspective = await Perspective.findById(perspective._id)
       .populate('userId', 'username email firstName lastName avatarUrl')
-      .populate('claimId', 'title description')
+      .populate('claimId', 'title description userId')
 
     if (!populatedPerspective) {
       throw new Error('Failed to retrieve created perspective')
+    }
+
+    // Notify claim owner about new perspective (don't notify if owner is the one who added it)
+    // Get claim to find owner
+    const claim = await Claim.findById(claimId).select('userId title').lean()
+    
+    if (claim) {
+      const claimOwnerId = claim.userId instanceof mongoose.Types.ObjectId
+        ? claim.userId.toString()
+        : (claim.userId as any)?.toString()
+
+      const perspectiveCreatorId = populatedPerspective.userId instanceof mongoose.Types.ObjectId
+        ? populatedPerspective.userId.toString()
+        : (populatedPerspective.userId as any)?._id?.toString() || (populatedPerspective.userId as any).toString()
+
+      if (claimOwnerId && claimOwnerId !== perspectiveCreatorId) {
+        const claimTitle = claim.title || 'your claim'
+        const perspectiveTitle = populatedPerspective.title || 'New perspective'
+        const creatorUsername = populatedPerspective.userId instanceof mongoose.Types.ObjectId
+          ? 'Someone'
+          : (populatedPerspective.userId as any)?.username || 'Someone'
+
+        createNotification({
+          userId: claimOwnerId,
+          type: NotificationType.NEW_PERSPECTIVE,
+          title: 'New perspective added to your claim',
+          message: `@${creatorUsername} added a new perspective "${perspectiveTitle}" to "${claimTitle}"`,
+          link: `/claims/${claimId}`,
+        }).catch((error) => {
+          console.error('Error notifying claim owner about new perspective:', error)
+        })
+      }
     }
 
     // Get updated claim with recalculated score

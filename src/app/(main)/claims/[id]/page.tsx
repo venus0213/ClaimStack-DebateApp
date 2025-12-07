@@ -11,16 +11,13 @@ import { PerspectiveUpload } from '@/components/perspective/PerspectiveUpload'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { ChevronLeftIcon, ChevronDownIcon, ChevronUpIcon, FilterIcon, SortAscIcon, XIcon } from '@/components/ui/Icons'
-import { Evidence, Perspective, Claim } from '@/lib/types'
 import { FilterButton } from '@/components/ui/FilterButton'
 import { FilterValues } from '@/components/ui/FilterModal'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
-import { VoteButtons } from '@/components/voting/VoteButtons'
 import { useVote } from '@/hooks/useVote'
 import { useFollow } from '@/hooks/useFollow'
 import { useClaimsStore } from '@/store/claimsStore'
 import { useEvidenceStore } from '@/store/evidenceStore'
-import { useRef } from 'react'
 import { MediaDisplay } from '@/components/moderation/MediaDisplay'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -45,15 +42,12 @@ export default function ClaimDetailPage() {
   const [titleEditor, setTitleEditor] = useState<{ username: string } | null>(null)
   const [descriptionEditor, setDescriptionEditor] = useState<{ username: string } | null>(null)
   
-  // Use claim from store or local state - only use it if it matches the current claimId
   const claim = currentClaim && currentClaim.id === claimId ? currentClaim : null
 
-  // Check if user can see edit information (admin or creator)
   const isAdmin = currentUser && (currentUser.role?.toUpperCase() === 'ADMIN' || currentUser.role?.toUpperCase() === 'MODERATOR')
   const isCreator = currentUser && claim && claim.userId === currentUser.id
   const canSeeEditInfo = isAdmin || isCreator
 
-  // Fetch editor user information
   useEffect(() => {
     const fetchEditors = async () => {
       if (!claim || !canSeeEditInfo) {
@@ -62,7 +56,6 @@ export default function ClaimDetailPage() {
         return
       }
 
-      // Fetch title editor
       if (claim.titleEdited && claim.titleEditedBy) {
         try {
           const response = await fetch(`/api/users/${claim.titleEditedBy}`, {
@@ -79,7 +72,6 @@ export default function ClaimDetailPage() {
         }
       }
 
-      // Fetch description editor
       if (claim.descriptionEdited && claim.descriptionEditedBy) {
         try {
           const response = await fetch(`/api/users/${claim.descriptionEditedBy}`, {
@@ -100,7 +92,6 @@ export default function ClaimDetailPage() {
     fetchEditors()
   }, [claim, canSeeEditInfo])
 
-  // Use hooks for claim vote and follow
   const claimVote = useVote({
     itemId: claimId,
     itemType: 'claim',
@@ -112,16 +103,14 @@ export default function ClaimDetailPage() {
   const claimFollow = useFollow({
     itemId: claimId,
     itemType: 'claim',
-    currentIsFollowing: false, // Will be set from API
+    currentIsFollowing: false,
     currentFollowCount: claim?.followCount || 0,
   })
 
-  // Fetch claim data
   useEffect(() => {
     const fetchClaim = async () => {
       if (!claimId) return
       
-      // Clear previous claim and set loading state
       setCurrentClaim(null)
       setClaimLoading(true)
       
@@ -133,7 +122,6 @@ export default function ClaimDetailPage() {
         const data = await response.json()
         if (data.success && data.claim) {
           setCurrentClaim(data.claim)
-          // Update global store
           updateClaim(claimId, data.claim)
         } else {
           throw new Error('Claim not found')
@@ -148,7 +136,6 @@ export default function ClaimDetailPage() {
     fetchClaim()
   }, [claimId, setCurrentClaim, updateClaim])
 
-  // Fetch evidence and perspectives
   useEffect(() => {
     const fetchData = async () => {
       if (!claimId) return
@@ -157,7 +144,6 @@ export default function ClaimDetailPage() {
         setLoading(true)
         setError(null)
 
-        // Fetch evidence
         const evidenceParams = new URLSearchParams({ claimId })
         const evidenceResponse = await fetch(`/api/evidence?${evidenceParams.toString()}`, {
           credentials: 'include',
@@ -170,7 +156,6 @@ export default function ClaimDetailPage() {
         const evidenceData = await evidenceResponse.json()
         const fetchedEvidence = evidenceData.evidence || []
 
-        // Fetch perspectives
         const perspectivesParams = new URLSearchParams({ claimId })
         const perspectivesResponse = await fetch(`/api/perspectives?${perspectivesParams.toString()}`, {
           credentials: 'include',
@@ -196,13 +181,11 @@ export default function ClaimDetailPage() {
     fetchData()
   }, [claimId])
 
-  // Combine evidence and perspectives for current position
   const forEvidence = evidence.filter((e) => e.position === 'for')
   const againstEvidence = evidence.filter((e) => e.position === 'against')
   const forPerspectives = perspectives.filter((p) => p.position === 'for')
   const againstPerspectives = perspectives.filter((p) => p.position === 'against')
 
-  // Combine and sort by creation date (most recent first)
   const combinedFor = [...forEvidence, ...forPerspectives].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   )
@@ -213,7 +196,6 @@ export default function ClaimDetailPage() {
   const currentItems = position === 'for' ? combinedFor : combinedAgainst
 
   const handleUpload = async (data: any) => {
-    // Refetch data after upload
     const evidenceParams = new URLSearchParams({ claimId })
     const evidenceResponse = await fetch(`/api/evidence?${evidenceParams.toString()}`, {
       credentials: 'include',
@@ -232,8 +214,6 @@ export default function ClaimDetailPage() {
       setPerspectives(perspectivesData.perspectives || [])
     }
 
-    // Always refetch claim to get updated score after upload
-    // This ensures the score is recalculated and displayed correctly
     const claimResponse = await fetch(`/api/claims/${claimId}`, {
       credentials: 'include',
     })
@@ -246,10 +226,8 @@ export default function ClaimDetailPage() {
     }
   }
 
-  // Callbacks for ContentCard - hooks handle the actual logic
   const onVote = async (itemId: string, voteType: 'upvote' | 'downvote') => {
-    // ContentCard handles voting through hooks, this is just for notification
-    // Refetch claim to get updated score
+
     const claimResponse = await fetch(`/api/claims/${claimId}`, {
       credentials: 'include',
     })
@@ -266,18 +244,8 @@ export default function ClaimDetailPage() {
     // ContentCard handles following through hooks, this is just for notification
   }
 
-  const handleClaimVote = async (voteType: 'upvote' | 'downvote') => {
-    await claimVote.vote(voteType)
-  }
-
-  const handleClaimFollow = async () => {
-    await claimFollow.toggleFollow()
-  }
-
   const handleFiltersChange = (newFilters: FilterValues) => {
     setFilters(newFilters)
-    // Apply filters to your data here
-    console.log('Filters applied:', newFilters)
   }
 
   return (
@@ -295,7 +263,6 @@ export default function ClaimDetailPage() {
           </Link>
         </div>
 
-        {/* Statement Section */}
         <div className="bg-[#F9F9F9] dark:bg-gray-800 rounded-xl sm:rounded-2xl lg:rounded-[32px] border border-[#DCDCDC] dark:border-gray-700 p-3 sm:p-4 lg:p-6 mb-4 sm:mb-6 lg:mb-8 transition-colors">
           <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
             <div className="flex items-center">
@@ -306,7 +273,6 @@ export default function ClaimDetailPage() {
             {claimLoading ? 'Loading...' : (claim?.title || 'Claim not found')}
           </p>
          
-          {/* Description Section */}
           {claimLoading ? (
             <p className="text-xs sm:text-sm lg:text-base text-gray-500 dark:text-gray-400 leading-relaxed mb-4 sm:mb-6 lg:mb-8">Loading...</p>
           ) : claim?.description ? (
@@ -315,7 +281,6 @@ export default function ClaimDetailPage() {
             </p>
           ) : null}
                     
-          {/* AI Summary Section */}
           {!claimLoading && claim?.forSummary && (
             <div className="mb-4 sm:mb-6 lg:mb-8">
               <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-[#030303] dark:text-gray-100 sm:mb-4 lg:mb-5 mb-3">AI Summary of Claim</h2>
@@ -323,9 +288,7 @@ export default function ClaimDetailPage() {
             </div>
           )}
           
-          {/* Two Column Layout: Media on Left, Metadata on Right */}
           <div className={`grid grid-cols-1 ${!isMediaHidden ? 'lg:grid-cols-2' : ''} gap-4 sm:gap-6 lg:gap-8 xl:gap-12 py-4 sm:py-6 items-stretch`}>
-            {/* Left Section: Media Display */}
             {!isMediaHidden && (
               <div className="flex flex-col space-y-1 h-full">
                 <div className="flex items-center justify-between mb-2 sm:mb-1">
@@ -363,7 +326,6 @@ export default function ClaimDetailPage() {
               </div>
             )}
 
-            {/* Right Section: Detailed Metadata */}
             <div className={`space-y-4 sm:space-y-5 ${!isMediaHidden ? 'lg:border-l lg:border-gray-200 lg:dark:border-gray-700 lg:pl-6 xl:pl-8' : ''} h-full`}>
               <h2 className="text-lg sm:text-xl font-semibold text-[#030303] dark:text-gray-100 sm:mb-5 mb-3 sm:pt-3">Details</h2>
               
@@ -454,14 +416,9 @@ export default function ClaimDetailPage() {
                   </div>
                 )}
                 
-                {/* Edit Information */}
                 {canSeeEditInfo && (claim?.titleEdited || claim?.descriptionEdited) && (
                   <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700">
-                    {/* <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                      Edit Information
-                    </h3> */}
                     <div className="space-y-3 sm:space-y-4">
-                      {/* Title Edit Info */}
                       {claim.titleEdited && (
                         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4">
                           <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
@@ -502,7 +459,6 @@ export default function ClaimDetailPage() {
                         </div>
                       )}
 
-                      {/* Description Edit Info */}
                       {claim.descriptionEdited && (
                         <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 sm:p-4">
                           <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
@@ -544,32 +500,30 @@ export default function ClaimDetailPage() {
                     </div>
                   </div>
                 )}
-                {/* Toggle Summaries Button */}
                 <div className="flex items-center justify-end pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-200 dark:border-gray-700">
-                        <button 
-                          className="text-black dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 p-1 flex items-center gap-1.5 sm:gap-2 transition-colors"
-                          onClick={() => setIsSummariesExpanded(!isSummariesExpanded)}
-                          aria-label="Toggle summaries"
-                        >
-                          <span className="text-xs sm:text-sm font-medium">
-                            {isSummariesExpanded ? 'Hide' : 'Show'} Summaries
-                          </span>
-                          {isSummariesExpanded ? (
-                            <ChevronUpIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                          ) : (
-                            <ChevronDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                          )}
-                        </button>
-                      </div>
-          
-                      {/* Summaries */}
-                      {isSummariesExpanded && claim && (
-                        <div className="sm:mt-3">
-                          <ClaimSummary 
-                            evidence={evidence}
-                          />
-                        </div>
-                      )}
+                  <button 
+                    className="text-black dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 p-1 flex items-center gap-1.5 sm:gap-2 transition-colors"
+                    onClick={() => setIsSummariesExpanded(!isSummariesExpanded)}
+                    aria-label="Toggle summaries"
+                  >
+                    <span className="text-xs sm:text-sm font-medium">
+                      {isSummariesExpanded ? 'Hide' : 'Show'} Summaries
+                    </span>
+                    {isSummariesExpanded ? (
+                      <ChevronUpIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    ) : (
+                      <ChevronDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    )}
+                  </button>
+                </div>
+    
+                {isSummariesExpanded && claim && (
+                  <div className="sm:mt-3">
+                    <ClaimSummary 
+                      evidence={evidence}
+                    />
+                  </div>
+                )}
               </div>
               )}
             </div>
@@ -577,7 +531,6 @@ export default function ClaimDetailPage() {
         </div>
 
 
-        {/* Supporting Evidence Section */}
         <div className="mb-4 sm:mb-6 lg:mb-8 mt-4 sm:mt-6 lg:mt-10 flex flex-col gap-4 sm:gap-6 lg:gap-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-4 lg:mb-6">
             <h2 className="text-lg sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-[32px] font-semibold text-gray-900 dark:text-gray-100">Supporting Evidence</h2>
@@ -663,7 +616,6 @@ export default function ClaimDetailPage() {
         </div>
       </div>
 
-      {/* Submit Evidence Modal */}
       <Modal
         isOpen={isSubmitEvidenceModalOpen}
         onClose={() => setIsSubmitEvidenceModalOpen(false)}
@@ -676,7 +628,6 @@ export default function ClaimDetailPage() {
         />
       </Modal>
 
-      {/* Submit Perspective Modal */}
       <Modal
         isOpen={isSubmitPerspectiveModalOpen}
         onClose={() => setIsSubmitPerspectiveModalOpen(false)}

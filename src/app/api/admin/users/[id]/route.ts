@@ -16,10 +16,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Ensure database connection
     await connectDB()
 
-    // Check if user is admin
     const authResult = await requireAdmin(request)
     if (authResult.error) {
       return authResult.error
@@ -27,7 +25,6 @@ export async function DELETE(
 
     const { id } = params
 
-    // Validate user ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { error: 'Invalid user ID format' },
@@ -35,7 +32,6 @@ export async function DELETE(
       )
     }
 
-    // Prevent admin from deleting themselves
     if (authResult.user.userId === id) {
       return NextResponse.json(
         { error: 'Cannot delete your own account' },
@@ -43,7 +39,6 @@ export async function DELETE(
       )
     }
 
-    // Find and delete user
     const user = await User.findByIdAndDelete(new mongoose.Types.ObjectId(id))
 
     if (!user) {
@@ -72,10 +67,8 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Ensure database connection
     await connectDB()
 
-    // Check if user is admin
     const authResult = await requireAdmin(request)
     if (authResult.error) {
       return authResult.error
@@ -83,7 +76,6 @@ export async function PATCH(
 
     const { id } = params
 
-    // Validate user ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { error: 'Invalid user ID format' },
@@ -93,7 +85,6 @@ export async function PATCH(
 
     const body = await request.json()
 
-    // Validate input
     const validationResult = updateUserSchema.safeParse(body)
     if (!validationResult.success) {
       return NextResponse.json(
@@ -104,7 +95,6 @@ export async function PATCH(
 
     const { role, password } = validationResult.data
 
-    // Find user
     const user = await User.findById(new mongoose.Types.ObjectId(id))
 
     if (!user) {
@@ -114,7 +104,6 @@ export async function PATCH(
       )
     }
 
-    // Prevent admin from changing their own role
     if (role && authResult.user.userId === id) {
       return NextResponse.json(
         { error: 'Cannot change your own role' },
@@ -122,20 +111,15 @@ export async function PATCH(
       )
     }
 
-    // Update role if provided
     if (role) {
       user.role = role as Role
     }
 
-    // Update password if provided
     if (password) {
       user.passwordHash = await hashPassword(password)
-    }
-
-    // Save changes
+    } 
     await user.save()
 
-    // Return updated user (without password hash)
     const updatedUser = await User.findById(id).select('-passwordHash -__v').lean()
 
     return NextResponse.json({

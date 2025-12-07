@@ -1,11 +1,24 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { NotificationList } from './NotificationList'
+import { useNotificationsStore } from '@/store/notificationsStore'
 
 export const NotificationBell: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false)
-  const [unreadCount] = useState(1) // This would come from your state/store
+  const { unreadCount, fetchNotifications } = useNotificationsStore()
+
+  useEffect(() => {
+    // Fetch notifications when component mounts
+    fetchNotifications()
+    
+    // Optionally: Set up polling to refresh notifications periodically
+    const interval = setInterval(() => {
+      fetchNotifications()
+    }, 30000) // Refresh every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [fetchNotifications])
 
   return (
     <div className="relative">
