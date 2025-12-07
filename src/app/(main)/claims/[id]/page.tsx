@@ -365,8 +365,36 @@ export default function ClaimDetailPage() {
 
             {/* Right Section: Detailed Metadata */}
             <div className={`space-y-4 sm:space-y-5 ${!isMediaHidden ? 'lg:border-l lg:border-gray-200 lg:dark:border-gray-700 lg:pl-6 xl:pl-8' : ''} h-full`}>
-              <h2 className="text-lg sm:text-xl font-semibold text-[#030303] dark:text-gray-100 sm:mb-5 mb-3 sm:pt-3">Details</h2>
               
+              {/* Toggle Summaries Button */}
+              {/* <div className="flex items-center justify-end pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-200 dark:border-gray-700">
+                <button 
+                  className="text-black dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 p-1 flex items-center gap-1.5 sm:gap-2 transition-colors"
+                  onClick={() => setIsSummariesExpanded(!isSummariesExpanded)}
+                  aria-label="Toggle summaries"
+                >
+                  <span className="text-xs sm:text-sm font-medium">
+                    {isSummariesExpanded ? 'Hide' : 'Show'} Summaries
+                  </span>
+                  {isSummariesExpanded ? (
+                    <ChevronUpIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  ) : (
+                    <ChevronDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  )}
+                </button>
+              </div> */}
+
+              {/* Summaries */}
+              {/* {isSummariesExpanded && claim && ( */}
+                <div className="sm:mt-3">
+                  <ClaimSummary 
+                    evidence={evidence}
+                  />
+                </div>
+              {/* )}                              */}
+
+              <h2 className="text-lg sm:text-xl font-semibold text-[#030303] dark:text-gray-100 sm:mb-5 mb-3 sm:pt-3">Details</h2>
+
               {claimLoading ? (
                 <div className="space-y-3 sm:space-y-4 text-xs sm:text-sm">
                   <p className="text-gray-500 dark:text-gray-400">Loading details...</p>
@@ -544,32 +572,6 @@ export default function ClaimDetailPage() {
                     </div>
                   </div>
                 )}
-                {/* Toggle Summaries Button */}
-                <div className="flex items-center justify-end pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-200 dark:border-gray-700">
-                        <button 
-                          className="text-black dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 p-1 flex items-center gap-1.5 sm:gap-2 transition-colors"
-                          onClick={() => setIsSummariesExpanded(!isSummariesExpanded)}
-                          aria-label="Toggle summaries"
-                        >
-                          <span className="text-xs sm:text-sm font-medium">
-                            {isSummariesExpanded ? 'Hide' : 'Show'} Summaries
-                          </span>
-                          {isSummariesExpanded ? (
-                            <ChevronUpIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                          ) : (
-                            <ChevronDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                          )}
-                        </button>
-                      </div>
-          
-                      {/* Summaries */}
-                      {isSummariesExpanded && claim && (
-                        <div className="sm:mt-3">
-                          <ClaimSummary 
-                            evidence={evidence}
-                          />
-                        </div>
-                      )}
               </div>
               )}
             </div>
