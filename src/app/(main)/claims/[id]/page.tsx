@@ -305,7 +305,7 @@ export default function ClaimDetailPage() {
           <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold text-gray-900 dark:text-gray-100 sm:mb-6 mb-4 leading-tight">
             {claimLoading ? 'Loading...' : (claim?.title || 'Claim not found')}
           </p>
-          
+         
           {/* Description Section */}
           {claimLoading ? (
             <p className="text-xs sm:text-sm lg:text-base text-gray-500 dark:text-gray-400 leading-relaxed mb-4 sm:mb-6 lg:mb-8">Loading...</p>
@@ -314,6 +314,14 @@ export default function ClaimDetailPage() {
               {claim.description}
             </p>
           ) : null}
+                    
+          {/* AI Summary Section */}
+          {!claimLoading && claim?.forSummary && (
+            <div className="mb-4 sm:mb-6 lg:mb-8">
+              <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-[#030303] dark:text-gray-100 sm:mb-4 lg:mb-5 mb-3">AI Summary of Claim</h2>
+              <p className="text-xs sm:text-sm text-[#030303] dark:text-gray-200 leading-relaxed">{claim.forSummary}</p>
+            </div>
+          )}
           
           {/* Two Column Layout: Media on Left, Metadata on Right */}
           <div className={`grid grid-cols-1 ${!isMediaHidden ? 'lg:grid-cols-2' : ''} gap-4 sm:gap-6 lg:gap-8 xl:gap-12 py-4 sm:py-6 items-stretch`}>
@@ -357,13 +365,7 @@ export default function ClaimDetailPage() {
 
             {/* Right Section: Detailed Metadata */}
             <div className={`space-y-4 sm:space-y-5 ${!isMediaHidden ? 'lg:border-l lg:border-gray-200 lg:dark:border-gray-700 lg:pl-6 xl:pl-8' : ''} h-full`}>
-              {!claimLoading && claim?.forSummary && (
-                <div>
-                  <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-[#030303] dark:text-gray-100 sm:mb-4 lg:mb-5 mb-3">AI Summary of Claim</h2>
-                  <p className="text-xs sm:text-sm text-[#030303] dark:text-gray-200 leading-relaxed">{claim.forSummary}</p>
-                </div>
-              )}              
-              <h2 className="text-lg sm:text-xl font-semibold text-[#030303] dark:text-gray-100 sm:mb-5 mb-3 sm:pt-10 pt-6">Details</h2>
+              <h2 className="text-lg sm:text-xl font-semibold text-[#030303] dark:text-gray-100 sm:mb-5 mb-3 sm:pt-3">Details</h2>
               
               {claimLoading ? (
                 <div className="space-y-3 sm:space-y-4 text-xs sm:text-sm">
@@ -542,36 +544,36 @@ export default function ClaimDetailPage() {
                     </div>
                   </div>
                 )}
+                {/* Toggle Summaries Button */}
+                <div className="flex items-center justify-end pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-200 dark:border-gray-700">
+                        <button 
+                          className="text-black dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 p-1 flex items-center gap-1.5 sm:gap-2 transition-colors"
+                          onClick={() => setIsSummariesExpanded(!isSummariesExpanded)}
+                          aria-label="Toggle summaries"
+                        >
+                          <span className="text-xs sm:text-sm font-medium">
+                            {isSummariesExpanded ? 'Hide' : 'Show'} Summaries
+                          </span>
+                          {isSummariesExpanded ? (
+                            <ChevronUpIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                          ) : (
+                            <ChevronDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                          )}
+                        </button>
+                      </div>
+          
+                      {/* Summaries */}
+                      {isSummariesExpanded && claim && (
+                        <div className="sm:mt-3">
+                          <ClaimSummary 
+                            evidence={evidence}
+                          />
+                        </div>
+                      )}
               </div>
               )}
             </div>
           </div>
-          {/* Toggle Summaries Button */}
-          <div className="flex items-center justify-end pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-200 dark:border-gray-700">
-            <button 
-              className="text-black dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 p-1 flex items-center gap-1.5 sm:gap-2 transition-colors"
-              onClick={() => setIsSummariesExpanded(!isSummariesExpanded)}
-              aria-label="Toggle summaries"
-            >
-              <span className="text-xs sm:text-sm font-medium">
-                {isSummariesExpanded ? 'Hide' : 'Show'} Summaries
-              </span>
-              {isSummariesExpanded ? (
-                <ChevronUpIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              ) : (
-                <ChevronDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              )}
-            </button>
-          </div>    
-          
-          {/* Summaries */}
-          {isSummariesExpanded && claim && (
-            <div className="sm:mt-3">
-              <ClaimSummary 
-                evidence={evidence}
-              />
-            </div>
-          )}
         </div>
 
 
