@@ -2,9 +2,11 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { format, isToday, isYesterday } from 'date-fns'
+import { useRouter } from 'next/navigation'
+import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns'
 import { Notification } from '@/lib/types'
 import { useNotificationsStore } from '@/store/notificationsStore'
+import { Button } from '@/components/ui/Button'
 import { 
   XIcon, 
   ChatIcon, 
@@ -23,13 +25,15 @@ interface NotificationListProps {
 export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) => {
   const { notifications, isLoading, fetchNotifications, markAsRead } = useNotificationsStore()
   const [localNotifications, setLocalNotifications] = useState<Notification[]>([])
+  const router = useRouter()
 
   useEffect(() => {
-    fetchNotifications()
-  }, [fetchNotifications])
+    if (notifications.length === 0) {
+      fetchNotifications(6)
+    }
+  }, [])
 
   useEffect(() => {
-    // Limit to 6 notifications and ensure createdAt is a Date object
     const limited = notifications.slice(0, 6).map(notif => ({
       ...notif,
       createdAt: notif.createdAt instanceof Date ? notif.createdAt : new Date(notif.createdAt),
@@ -46,7 +50,6 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
       case 'new_comment':
-        // Speech bubble with 'i' inside
         return (
           <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center relative">
             <ChatIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -55,14 +58,12 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
         )
       case 'new_evidence':
       case 'new_perspective':
-        // Paperclip icon
         return (
           <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
             <PaperClipIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </div>
         )
       case 'new_follower':
-        // Person's head with '@' symbol
         return (
           <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center relative">
             <UserIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -70,7 +71,6 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
           </div>
         )
       case 'vote_received':
-        // Line graph with upward trend
         return (
           <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
             <TrendingUpIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -78,7 +78,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
         )
       case 'evidence_rejected':
       case 'perspective_rejected':
-        // Clock/hourglass icon
+      case 'claim_rejected':
         return (
           <div className="w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
             <ClockIcon className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
@@ -87,7 +87,6 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
       case 'evidence_approved':
       case 'perspective_approved':
       case 'claim_approved':
-        // Starburst/sparkle icon
         return (
           <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
             <SparklesIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
@@ -95,7 +94,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
         )
       case 'claim_submitted':
       case 'new_claim':
-        // Bell icon
+      case 'expedited_review_requested':
         return (
           <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
             <BellOutlineIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -110,7 +109,6 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
     }
   }
 
-  // Group notifications by date
   const groupNotificationsByDate = (notifications: Notification[]) => {
     const groups: { [key: string]: Notification[] } = {}
     
@@ -200,7 +198,17 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
                           {getNotificationIcon(notification.type)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{notification.title}</p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{notification.title}</p>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                              {(() => {
+                                const createdAt = notification.createdAt instanceof Date 
+                                  ? notification.createdAt 
+                                  : new Date(notification.createdAt)
+                                return formatDistanceToNow(createdAt, { addSuffix: true })
+                              })()}
+                            </span>
+                          </div>
                           {notification.message && (
                             <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{notification.message}</p>
                           )}
@@ -214,6 +222,21 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
           </div>
         )}
       </div>
+
+      {!isLoading && localNotifications.length > 0 && (
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <Button
+            onClick={() => {
+              onClose()
+              router.push('/notifications')
+            }}
+            variant="outline"
+            className="w-full"
+          >
+            Show all
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

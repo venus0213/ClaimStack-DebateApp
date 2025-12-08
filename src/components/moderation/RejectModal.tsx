@@ -34,8 +34,11 @@ export const RejectModal: React.FC<RejectModalProps> = ({
 
     setIsProcessing(true)
     try {
-      const rejectReason = reason || customMessage
-      const result = await rejectClaim(claimId, rejectReason)
+      const feedback = notifyUser 
+        ? (customMessage && customMessage.trim() ? customMessage : reason)
+        : reason
+      
+      const result = await rejectClaim(claimId, reason, feedback, notifyUser)
       if (result.success) {
         onConfirm()
       } else {
@@ -89,8 +92,8 @@ export const RejectModal: React.FC<RejectModalProps> = ({
             Reason for rejection (required):
           </label>
           <textarea
-            maxLength={100}
-            rows={2}
+            maxLength={500}
+            rows={3}
             placeholder="Enter your reason for rejection"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
@@ -120,19 +123,24 @@ export const RejectModal: React.FC<RejectModalProps> = ({
           </label>
         </div>
 
-        <div className="space-y-2">
-          <label className="block text-gray-700 dark:text-gray-300 font-medium">
-            Optional custom message:
-          </label>
-          <textarea
-            maxLength={100}
-            rows={2}
-            placeholder="Enter your custom message"
-            value={customMessage}
-            onChange={(e) => setCustomMessage(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
-          />
-        </div>
+        {notifyUser && (
+          <div className="space-y-2">
+            <label className="block text-gray-700 dark:text-gray-300 font-medium">
+              Feedback message for submitter (optional):
+            </label>
+            <textarea
+              maxLength={500}
+              rows={3}
+              placeholder="Enter a helpful message to explain why the claim was rejected"
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              This message will be sent to the claim submitter. If left empty, the reason above will be used.
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col justify-end space-y-3 pt-4">
           <Button 

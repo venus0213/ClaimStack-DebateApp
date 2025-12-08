@@ -47,6 +47,10 @@ export interface Claim {
   descriptionEditedBy?: string
   descriptionEditedAt?: Date
   descriptionEditReason?: string
+  // Rejection feedback
+  rejectionFeedback?: string
+  // Expedited review
+  expeditedReview?: boolean
   createdAt: Date
   updatedAt: Date
   user?: User
@@ -107,7 +111,7 @@ export interface Category {
 export interface Notification {
   id: string
   userId: string
-  type: 'new_evidence' | 'new_perspective' | 'new_comment' | 'evidence_approved' | 'evidence_rejected' | 'perspective_approved' | 'perspective_rejected' | 'claim_updated' | 'new_follower' | 'vote_received' | 'claim_submitted' | 'claim_approved' | 'new_claim'
+  type: 'new_evidence' | 'new_perspective' | 'new_comment' | 'evidence_approved' | 'evidence_rejected' | 'perspective_approved' | 'perspective_rejected' | 'claim_updated' | 'new_follower' | 'vote_received' | 'claim_submitted' | 'claim_approved' | 'claim_rejected' | 'new_claim' | 'expedited_review_requested'
   title: string
   message?: string
   link?: string

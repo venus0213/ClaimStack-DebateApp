@@ -9,16 +9,14 @@ export const NotificationBell: React.FC = () => {
   const { unreadCount, fetchNotifications } = useNotificationsStore()
 
   useEffect(() => {
-    // Fetch notifications when component mounts
-    fetchNotifications()
+    fetchNotifications(6)
     
-    // Optionally: Set up polling to refresh notifications periodically
     const interval = setInterval(() => {
-      fetchNotifications()
-    }, 30000) // Refresh every 30 seconds
+      fetchNotifications(6)
+    }, 60000)
 
     return () => clearInterval(interval)
-  }, [fetchNotifications])
+  }, [])
 
   return (
     <div className="relative">

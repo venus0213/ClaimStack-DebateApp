@@ -4,14 +4,12 @@ import { requireAuth } from '@/lib/auth/middleware'
 import { Notification } from '@/lib/db/models'
 import mongoose from 'mongoose'
 
-// Helper function to convert NotificationType enum to lowercase string
 function convertNotificationType(type: string): string {
   return type.toLowerCase()
 }
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication
     const authResult = await requireAuth(request)
     if (authResult.error) {
       return authResult.error
@@ -19,21 +17,22 @@ export async function GET(request: NextRequest) {
 
     const user = authResult.user
 
-    // Ensure database connection
     await connectDB()
 
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '6', 10) // Default to 6 as per requirement
+    const limitParam = searchParams.get('limit')
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined
 
     const userId = new mongoose.Types.ObjectId(user.userId)
 
-    // Fetch notifications for the user, limited to 6, sorted by most recent
-    const notifications = await Notification.find({ userId })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean()
+    let query = Notification.find({ userId }).sort({ createdAt: -1 })
 
-    // Transform to API format - convert enum to lowercase
+    if (limit !== undefined && limit > 0) {
+      query = query.limit(limit)
+    }
+    
+    const notifications = await query.lean()
+
     const formattedNotifications = notifications.map((notification: any) => ({
       id: notification._id.toString(),
       userId: notification.userId.toString(),

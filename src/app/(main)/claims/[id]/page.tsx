@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { ClaimSummary } from '@/components/claims/ClaimSummary'
 import { ForAgainstToggle } from '@/components/claims/ForAgainstToggle'
 import { ContentCard } from '@/components/content/ContentCard'
@@ -19,10 +19,12 @@ import { useFollow } from '@/hooks/useFollow'
 import { useClaimsStore } from '@/store/claimsStore'
 import { useEvidenceStore } from '@/store/evidenceStore'
 import { MediaDisplay } from '@/components/moderation/MediaDisplay'
+import { RejectionMessageModal } from '@/components/moderation/RejectionMessageModal'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function ClaimDetailPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const claimId = params.id as string
   const { requireAuth } = useRequireAuth()
   const [position, setPosition] = useState<'for' | 'against'>('for')
@@ -31,6 +33,7 @@ export default function ClaimDetailPage() {
   const [isSubmitEvidenceModalOpen, setIsSubmitEvidenceModalOpen] = useState(false)
   const [isSubmitPerspectiveModalOpen, setIsSubmitPerspectiveModalOpen] = useState(false)
   const [isMediaHidden, setIsMediaHidden] = useState(false)
+  const [isRejectionModalOpen, setIsRejectionModalOpen] = useState(false)
   
   const { currentClaim, setCurrentClaim, updateClaim } = useClaimsStore()
   const { evidence, perspectives, setEvidence, setPerspectives, updateEvidence, updatePerspective } = useEvidenceStore()
@@ -123,6 +126,12 @@ export default function ClaimDetailPage() {
         if (data.success && data.claim) {
           setCurrentClaim(data.claim)
           updateClaim(claimId, data.claim)
+
+          const showRejection = searchParams?.get('showRejection') === 'true'
+          const isCreator = currentUser && data.claim.userId === currentUser.id
+          if (data.claim.status === 'rejected' && data.claim.rejectionFeedback && isCreator && showRejection) {
+            setIsRejectionModalOpen(true)
+          }
         } else {
           throw new Error('Claim not found')
         }
@@ -134,7 +143,7 @@ export default function ClaimDetailPage() {
       }
     }
     fetchClaim()
-  }, [claimId, setCurrentClaim, updateClaim])
+  }, [claimId, setCurrentClaim, updateClaim, searchParams, currentUser])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -354,6 +363,14 @@ export default function ClaimDetailPage() {
                       }`}>
                         {claim.status}
                       </span>
+                      {claim.status === 'rejected' && claim.rejectionFeedback && isCreator && (
+                        <button
+                          onClick={() => setIsRejectionModalOpen(true)}
+                          className="ml-2 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline font-medium"
+                        >
+                          View rejection feedback
+                        </button>
+                      )}
                     </div>
                   )}
                   
@@ -500,6 +517,31 @@ export default function ClaimDetailPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Show rejection feedback banner for creators */}
+                {claim?.status === 'rejected' && claim.rejectionFeedback && isCreator && (
+                  <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h3 className="text-sm font-semibold text-red-900 dark:text-red-200 mb-2">
+                            Your claim was rejected
+                          </h3>
+                          <p className="text-sm text-red-800 dark:text-red-300 mb-3 line-clamp-2">
+                            {claim.rejectionFeedback}
+                          </p>
+                          <button
+                            onClick={() => setIsRejectionModalOpen(true)}
+                            className="text-sm font-medium text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100 underline"
+                          >
+                            View full feedback message
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-end pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-200 dark:border-gray-700">
                   <button 
                     className="text-black dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 p-1 flex items-center gap-1.5 sm:gap-2 transition-colors"
@@ -639,6 +681,15 @@ export default function ClaimDetailPage() {
           onClose={() => setIsSubmitPerspectiveModalOpen(false)} 
         />
       </Modal>
+
+      {claim?.status === 'rejected' && claim.rejectionFeedback && (
+        <RejectionMessageModal
+          isOpen={isRejectionModalOpen}
+          onClose={() => setIsRejectionModalOpen(false)}
+          rejectionFeedback={claim.rejectionFeedback}
+          claimTitle={claim.title}
+        />
+      )}
     </div>
   )
 }
