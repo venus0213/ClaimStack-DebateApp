@@ -41,6 +41,10 @@ export interface IClaim extends Document {
   descriptionEditedBy?: mongoose.Types.ObjectId
   descriptionEditedAt?: Date
   descriptionEditReason?: string
+  // Rejection feedback
+  rejectionFeedback?: string
+  // Expedited review
+  expeditedReview?: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -152,6 +156,13 @@ const ClaimSchema = new Schema<IClaim>(
     },
     descriptionEditReason: {
       type: String,
+    },
+    rejectionFeedback: {
+      type: String,
+    },
+    expeditedReview: {
+      type: Boolean,
+      default: false,
     },
   },
   {

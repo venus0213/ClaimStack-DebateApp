@@ -26,7 +26,6 @@ interface ModerationItem {
   reason: string
   link?: string
   status: 'pending' | 'reviewed'
-  // Extended fields for detailed modal
   claimId?: string
   submittedDate?: string
   ipAddress?: string
@@ -35,12 +34,10 @@ interface ModerationItem {
   votesFor?: number
   votesAgainst?: number
   flagTimestamps?: Array<{ date: string; user: string }>
-  // File information
   fileUrl?: string
   fileName?: string
   fileSize?: number
   fileType?: string
-  // External link information
   url?: string
 }
 
@@ -58,14 +55,12 @@ export default function ModerationPage() {
   const [selectedItem, setSelectedItem] = useState<ModerationItem | null>(null)
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
 
-  // Check if user is ADMIN, redirect if not
   useEffect(() => {
     if (!authLoading) {
       if (!user) {
         router.replace('/')
         return
       }
-      // Check role - handle both uppercase (from DB) and lowercase (from types) formats
       const userRole = user.role?.toUpperCase()
       if (userRole !== 'ADMIN') {
         router.replace('/')
@@ -73,7 +68,6 @@ export default function ModerationPage() {
     }
   }, [user, authLoading, router])
 
-  // Don't render if still loading or user is not admin
   if (authLoading) {
     return (
       <div className="bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center transition-colors">
@@ -86,13 +80,11 @@ export default function ModerationPage() {
     return null
   }
 
-  // Fetch pending and rejected claims on mount
   useEffect(() => {
     const fetchData = async () => {
       setIsLoadingPending(true)
       setIsLoadingRejected(true)
       try {
-        // Fetch pending claims
         const pendingParams = new URLSearchParams()
         pendingParams.append('status', 'pending')
         pendingParams.append('page', '1')
@@ -104,7 +96,6 @@ export default function ModerationPage() {
           setPendingClaims(pendingData.claims || [])
         }
 
-        // Fetch rejected claims
         const rejectedParams = new URLSearchParams()
         rejectedParams.append('status', 'rejected')
         rejectedParams.append('page', '1')
@@ -127,10 +118,8 @@ export default function ModerationPage() {
     fetchData()
   }, [])
 
-  // Combine all claims
   const allClaims = [...pendingClaims, ...rejectedClaims]
 
-  // Transform claims to moderation items
   const moderationItems: ModerationItem[] = allClaims.map((claim) => {
       const date = new Date(claim.createdAt)
       const formattedDate = date.toLocaleDateString('en-GB', {
@@ -148,9 +137,9 @@ export default function ModerationPage() {
         user: userDisplay,
         date: formattedDate,
         title: claim.title,
-        flaggedBy: 0, // TODO: Fetch flag count from API
-        reason: claim.status === 'pending' ? 'Pending Review' : 'Rejected', // TODO: Fetch flag reasons from API
-        link: undefined, // TODO: Add link if available
+        flaggedBy: 0,
+        reason: claim.status === 'pending' ? 'Pending Review' : 'Rejected',
+        link: undefined,
         status: claim.status === 'pending' ? 'pending' as const : 'reviewed' as const,
         claimId: claim.id,
         submittedDate: date.toLocaleString('en-GB', {
@@ -161,12 +150,12 @@ export default function ModerationPage() {
           minute: '2-digit',
           timeZoneName: 'short',
         }),
-        ipAddress: undefined, // TODO: Add IP address if available
-        platform: 'Web', // TODO: Add platform if available
-        userStrikeHistory: undefined, // TODO: Fetch user strike history
-        votesFor: 0, // TODO: Fetch votes if available
-        votesAgainst: 0, // TODO: Fetch votes if available
-        flagTimestamps: [], // TODO: Fetch flag timestamps
+        ipAddress: undefined,
+        platform: 'Web',
+        userStrikeHistory: undefined,
+        votesFor: 0,
+        votesAgainst: 0,
+        flagTimestamps: [],
         fileUrl: claim.fileUrl || undefined,
         fileName: claim.fileName || undefined,
         fileSize: claim.fileSize || undefined,
@@ -177,7 +166,6 @@ export default function ModerationPage() {
       }
     })
 
-  // Filter items based on search query
   const filteredItems = moderationItems.filter((item) => {
     if (!searchQuery) return true
     const query = searchQuery.toLowerCase()
@@ -190,7 +178,6 @@ export default function ModerationPage() {
 
   const handleFiltersChange = (newFilters: FilterValues) => {
     setFilters(newFilters)
-    // Apply filters to your data here
     console.log('Filters applied:', newFilters)
   }
 
@@ -200,12 +187,8 @@ export default function ModerationPage() {
   }
 
   const handleApprove = async () => {
-    // This is called when approve is confirmed in ReviewModal's ApproveModal
-    // The ReviewModal's child ApproveModal will handle the API call
-    // We just need to refresh the list and close modals
     setIsReviewModalOpen(false)
     setSelectedItem(null)
-    // Refresh the list
     setIsLoadingPending(true)
     try {
       const pendingParams = new URLSearchParams()
@@ -226,12 +209,8 @@ export default function ModerationPage() {
   }
 
   const handleReject = async () => {
-    // This is called when reject is confirmed in ReviewModal's RejectModal
-    // The ReviewModal's child RejectModal will handle the API call
-    // We just need to refresh the list and close modals
     setIsReviewModalOpen(false)
     setSelectedItem(null)
-    // Refresh both lists
     setIsLoadingPending(true)
     setIsLoadingRejected(true)
     try {
@@ -380,7 +359,6 @@ export default function ModerationPage() {
         </div>
       </div>
 
-      {/* Review Modal */}
       <ReviewModal
         isOpen={isReviewModalOpen}
         onClose={() => {

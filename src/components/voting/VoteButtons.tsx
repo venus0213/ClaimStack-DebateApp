@@ -13,7 +13,7 @@ export interface VoteButtonsProps {
   onVote?: (voteType: 'upvote' | 'downvote') => Promise<void>
   disabled?: boolean
   itemId?: string
-  itemType?: 'claim' | 'evidence' | 'perspective'
+  itemType?: 'claim' | 'evidence' | 'perspective' | 'reply'
   onDropdownChange?: (isOpen: boolean) => void // Callback when dropdown opens/closes
 }
 

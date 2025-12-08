@@ -18,12 +18,9 @@ const signupSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Ensure database connection
     await connectDB()
 
     const body = await request.json()
-    
-    // Validate input
     const validationResult = signupSchema.safeParse(body)
     if (!validationResult.success) {
       return NextResponse.json(
@@ -33,8 +30,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, username, password, firstName, lastName } = validationResult.data
-
-    // Check if user already exists
     const existingUser = await User.findOne({
       $or: [
         { email: email.toLowerCase() },
@@ -49,10 +44,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Hash password
     const passwordHash = await hashPassword(password)
-
-    // Create user
     const user = await User.create({
       email: email.toLowerCase(),
       username,
@@ -61,7 +53,6 @@ export async function POST(request: NextRequest) {
       lastName,
     })
 
-    // Create session
     let sessionToken: string
     try {
       sessionToken = await createSession(user._id.toString(), {
@@ -71,7 +62,6 @@ export async function POST(request: NextRequest) {
         role: user.role,
       })
     } catch (sessionError) {
-      // If session creation fails, delete the user to maintain data consistency
       await User.findByIdAndDelete(user._id)
       const errorMessage = sessionError instanceof Error ? sessionError.message : 'Failed to create session'
       return NextResponse.json(
@@ -80,18 +70,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Set cookie
     try {
       const cookieStore = await cookies()
       cookieStore.set('claimstack_session', sessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
+        maxAge: 60 * 60 * 24 * 7,
         path: '/',
       })
     } catch (cookieError) {
-      // If cookie setting fails, delete the session and user
       await deleteSession(sessionToken)
       await User.findByIdAndDelete(user._id)
       return NextResponse.json(
@@ -100,7 +88,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Send welcome email (non-blocking - don't fail signup if email fails)
     try {
       const emailContent = generateWelcomeEmail({
         firstName: user.firstName,
@@ -114,7 +101,6 @@ export async function POST(request: NextRequest) {
         text: emailContent.text,
       })
     } catch (emailError) {
-      // Log error but don't fail the signup process
       console.error('Failed to send welcome email:', emailError)
     }
 

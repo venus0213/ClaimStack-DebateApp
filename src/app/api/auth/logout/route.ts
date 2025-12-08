@@ -11,7 +11,6 @@ export async function POST(request: NextRequest) {
       await deleteSession(sessionToken)
     }
 
-    // Clear cookie
     cookieStore.delete('claimstack_session')
 
     return NextResponse.json({ success: true })

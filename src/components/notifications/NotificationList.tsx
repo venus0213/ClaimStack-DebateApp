@@ -1,9 +1,12 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { format, isToday, isYesterday } from 'date-fns'
+import { useRouter } from 'next/navigation'
+import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns'
 import { Notification } from '@/lib/types'
+import { useNotificationsStore } from '@/store/notificationsStore'
+import { Button } from '@/components/ui/Button'
 import { 
   XIcon, 
   ChatIcon, 
@@ -19,77 +22,35 @@ interface NotificationListProps {
   onClose: () => void
 }
 
-// Mock data - replace with real data from your store/API
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    userId: '1',
-    type: 'new_comment',
-    title: 'Comment on your proof:',
-    message: '@climate_ninja commented on your post "Interesting article! Is there a source?"',
-    link: '/claims/123',
-    read: false,
-    createdAt: new Date(),
-  },
-  {
-    id: '2',
-    userId: '1',
-    type: 'new_evidence',
-    title: 'New proof from user:',
-    message: '@evidence_hunter added new evidence "Video: How plastic affects ocean life"',
-    link: '/claims/123',
-    read: false,
-    createdAt: new Date(),
-  },
-  {
-    id: '3',
-    userId: '1',
-    type: 'new_follower',
-    title: 'New subscriber:',
-    message: '@data_nerd started following you',
-    link: '/profile/data_nerd',
-    read: false,
-    createdAt: new Date(),
-  },
-  {
-    id: '4',
-    userId: '1',
-    type: 'vote_received',
-    title: 'Your proof has received a "Yes" vote:',
-    message: 'Your proof "CO2 and Global Warming" has been voted "Yes"',
-    link: '/claims/123',
-    read: false,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
-  },
-  {
-    id: '5',
-    userId: '1',
-    type: 'evidence_rejected',
-    title: 'Your proof has been sent for moderation:',
-    message: 'Your proof "Vaccines and Autism" marked as Pending Review',
-    link: '/claims/123',
-    read: false,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
-  },
-  {
-    id: '6',
-    userId: '1',
-    type: 'evidence_approved',
-    title: 'Your proof has been published:',
-    message: 'Your proof of "How 5G works" is published and available to others',
-    link: '/claims/123',
-    read: false,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
-  },
-]
-
 export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) => {
-  const notifications = mockNotifications
+  const { notifications, isLoading, fetchNotifications, markAsRead } = useNotificationsStore()
+  const [localNotifications, setLocalNotifications] = useState<Notification[]>([])
+  const router = useRouter()
+
+  useEffect(() => {
+    if (notifications.length === 0) {
+      fetchNotifications(6)
+    }
+  }, [])
+
+  useEffect(() => {
+    const limited = notifications.slice(0, 6).map(notif => ({
+      ...notif,
+      createdAt: notif.createdAt instanceof Date ? notif.createdAt : new Date(notif.createdAt),
+    }))
+    setLocalNotifications(limited)
+  }, [notifications])
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.read) {
+      markAsRead(notification.id)
+    }
+  }
 
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
       case 'new_comment':
-        // Speech bubble with 'i' inside
+      case 'new_reply':
         return (
           <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center relative">
             <ChatIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -97,14 +58,13 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
           </div>
         )
       case 'new_evidence':
-        // Paperclip icon
+      case 'new_perspective':
         return (
           <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
             <PaperClipIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </div>
         )
       case 'new_follower':
-        // Person's head with '@' symbol
         return (
           <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center relative">
             <UserIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -112,24 +72,33 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
           </div>
         )
       case 'vote_received':
-        // Line graph with upward trend
         return (
           <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
             <TrendingUpIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
           </div>
         )
       case 'evidence_rejected':
-        // Clock/hourglass icon
+      case 'perspective_rejected':
+      case 'claim_rejected':
         return (
           <div className="w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
             <ClockIcon className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
           </div>
         )
       case 'evidence_approved':
-        // Starburst/sparkle icon
+      case 'perspective_approved':
+      case 'claim_approved':
         return (
           <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
             <SparklesIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+          </div>
+        )
+      case 'claim_submitted':
+      case 'new_claim':
+      case 'expedited_review_requested':
+        return (
+          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+            <BellOutlineIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
         )
       default:
@@ -141,18 +110,21 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
     }
   }
 
-  // Group notifications by date
   const groupNotificationsByDate = (notifications: Notification[]) => {
     const groups: { [key: string]: Notification[] } = {}
     
     notifications.forEach((notification) => {
       let groupKey: string
-      if (isToday(notification.createdAt)) {
+      const createdAt = notification.createdAt instanceof Date 
+        ? notification.createdAt 
+        : new Date(notification.createdAt)
+      
+      if (isToday(createdAt)) {
         groupKey = 'Today'
-      } else if (isYesterday(notification.createdAt)) {
+      } else if (isYesterday(createdAt)) {
         groupKey = 'Yesterday'
       } else {
-        groupKey = format(notification.createdAt, 'MMMM d, yyyy')
+        groupKey = format(createdAt, 'MMMM d, yyyy')
       }
       
       if (!groups[groupKey]) {
@@ -164,7 +136,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
     return groups
   }
 
-  const groupedNotifications = groupNotificationsByDate(notifications)
+  const groupedNotifications = groupNotificationsByDate(localNotifications)
   const dateGroups = Object.keys(groupedNotifications).sort((a, b) => {
     if (a === 'Today') return -1
     if (b === 'Today') return 1
@@ -187,7 +159,11 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
       </div>
 
       <div className="overflow-y-auto">
-        {notifications.length === 0 ? (
+        {isLoading ? (
+          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+            <p>Loading notifications...</p>
+          </div>
+        ) : localNotifications.length === 0 ? (
           <div className="p-8 text-center text-gray-500 dark:text-gray-400">
             <p>No notifications</p>
           </div>
@@ -208,15 +184,32 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
                     <Link
                       key={notification.id}
                       href={notification.link || '#'}
-                      onClick={onClose}
-                      className="block p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      onClick={() => {
+                        handleNotificationClick(notification)
+                        onClose()
+                      }}
+                      className={`block p-4 rounded-2xl transition-colors ${
+                        notification.read
+                          ? 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          : 'bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                      }`}
                     >
                       <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0 relative">
                           {getNotificationIcon(notification.type)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{notification.title}</p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{notification.title}</p>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                              {(() => {
+                                const createdAt = notification.createdAt instanceof Date 
+                                  ? notification.createdAt 
+                                  : new Date(notification.createdAt)
+                                return formatDistanceToNow(createdAt, { addSuffix: true })
+                              })()}
+                            </span>
+                          </div>
                           {notification.message && (
                             <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{notification.message}</p>
                           )}
@@ -230,6 +223,21 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
           </div>
         )}
       </div>
+
+      {!isLoading && localNotifications.length > 0 && (
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <Button
+            onClick={() => {
+              onClose()
+              router.push('/notifications')
+            }}
+            variant="outline"
+            className="w-full"
+          >
+            Show all
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

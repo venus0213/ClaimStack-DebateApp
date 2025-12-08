@@ -15,7 +15,6 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const voteType = searchParams.get('voteType') as 'upvote' | 'downvote' | null
 
-    // Validate claim ID format
     if (!mongoose.Types.ObjectId.isValid(claimId)) {
       return NextResponse.json(
         { 
@@ -31,20 +30,16 @@ export async function GET(
     }
 
     const claimObjectId = new mongoose.Types.ObjectId(claimId)
-
-    // Build query
     const query: any = { claimId: claimObjectId }
     if (voteType) {
       query.voteType = voteType === 'upvote' ? VoteType.UPVOTE : VoteType.DOWNVOTE
     }
 
-    // Fetch votes with user information
     const votes = await ClaimVote.find(query)
       .populate('userId', 'username firstName lastName avatarUrl')
       .sort({ createdAt: -1 })
       .lean()
 
-    // Transform to API format
     const voters = votes.map((vote: any) => ({
       id: vote._id.toString(),
       userId: vote.userId._id?.toString() || vote.userId.toString(),

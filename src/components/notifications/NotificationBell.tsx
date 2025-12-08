@@ -1,11 +1,22 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { NotificationList } from './NotificationList'
+import { useNotificationsStore } from '@/store/notificationsStore'
 
 export const NotificationBell: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false)
-  const [unreadCount] = useState(1) // This would come from your state/store
+  const { unreadCount, fetchNotifications } = useNotificationsStore()
+
+  useEffect(() => {
+    fetchNotifications(6)
+    
+    const interval = setInterval(() => {
+      fetchNotifications(6)
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="relative">

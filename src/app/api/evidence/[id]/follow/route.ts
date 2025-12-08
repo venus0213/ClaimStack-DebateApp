@@ -10,7 +10,6 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check authentication
     const authResult = await requireAuth(request)
     if (authResult.error) {
       return authResult.error
@@ -19,10 +18,8 @@ export async function POST(
     const user = authResult.user
     const evidenceId = params.id
 
-    // Ensure database connection
     await connectDB()
 
-    // Validate evidence ID format
     if (!mongoose.Types.ObjectId.isValid(evidenceId)) {
       return NextResponse.json(
         { 
@@ -36,7 +33,6 @@ export async function POST(
       )
     }
 
-    // Find the evidence
     const evidence = await Evidence.findById(new mongoose.Types.ObjectId(evidenceId))
     if (!evidence) {
       return NextResponse.json(
@@ -54,7 +50,6 @@ export async function POST(
     const userId = new mongoose.Types.ObjectId(user.userId)
     const evidenceObjectId = new mongoose.Types.ObjectId(evidenceId)
 
-    // Check if user already follows
     const existingFollow = await EvidenceFollow.findOne({
       evidenceId: evidenceObjectId,
       userId,
@@ -63,12 +58,10 @@ export async function POST(
     let isFollowing = false
 
     if (existingFollow) {
-      // Unfollow - remove the follow
       await EvidenceFollow.findByIdAndDelete(existingFollow._id)
       evidence.followCount = Math.max(0, evidence.followCount - 1)
       isFollowing = false
     } else {
-      // Follow - create new follow
       await EvidenceFollow.create({
         evidenceId: evidenceObjectId,
         userId,

@@ -23,7 +23,6 @@ export const PopularClaimsCarousel: React.FC<PopularClaimsCarouselProps> = ({
     const fetchPopularClaims = async () => {
       setIsLoading(true)
       
-      // Fetch claims with limit of 3, sorted by upvotes
       const params = new URLSearchParams()
       params.append('status', 'approved')
       params.append('sortBy', 'most-voted')
@@ -47,10 +46,9 @@ export const PopularClaimsCarousel: React.FC<PopularClaimsCarouselProps> = ({
     fetchPopularClaims()
   }, [])
 
-  // Detect mobile screen size
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768) // md breakpoint
+      setIsMobile(window.innerWidth < 768)
     }
     
     checkMobile()
@@ -62,39 +60,33 @@ export const PopularClaimsCarousel: React.FC<PopularClaimsCarouselProps> = ({
   }, [])
 
   const handleMouseEnter = (claimId: string, event: React.MouseEvent<HTMLAnchorElement>) => {
-    // Don't show tooltip on mobile devices
+
     if (isMobile) return
-    
-    // Clear any existing timeout
+
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current)
     }
     
-    // Add a small delay to prevent flickering
     hoverTimeoutRef.current = setTimeout(() => {
       const linkElement = linkRefs.current[claimId]
       if (linkElement) {
         const rect = linkElement.getBoundingClientRect()
-        // Responsive tooltip width: smaller on mobile, larger on desktop
-        const tooltipWidth = isMobile ? Math.min(280, window.innerWidth - 32) : 384 // w-96 = 24rem = 384px
-        const tooltipHeight = 100 // Approximate height
+        const tooltipWidth = isMobile ? Math.min(280, window.innerWidth - 32) : 384
+        const tooltipHeight = 100 
         const windowWidth = window.innerWidth
         const windowHeight = window.innerHeight
         
         let left = rect.left
         let top = rect.bottom + 8
         
-        // Adjust if tooltip would go off the right edge
         if (left + tooltipWidth > windowWidth) {
           left = windowWidth - tooltipWidth - 16
         }
         
-        // Adjust if tooltip would go off the bottom edge
         if (top + tooltipHeight > windowHeight) {
           top = rect.top - tooltipHeight - 8
         }
         
-        // Ensure tooltip doesn't go off the left edge
         if (left < 16) {
           left = 16
         }
@@ -102,7 +94,7 @@ export const PopularClaimsCarousel: React.FC<PopularClaimsCarouselProps> = ({
         setTooltipPosition({ top, left })
         setHoveredClaimId(claimId)
       }
-    }, 300) // 300ms delay
+    }, 300)
   }
 
   const handleMouseLeave = () => {
@@ -114,7 +106,6 @@ export const PopularClaimsCarousel: React.FC<PopularClaimsCarouselProps> = ({
     setTooltipPosition(null)
   }
   
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) {
@@ -150,7 +141,6 @@ export const PopularClaimsCarousel: React.FC<PopularClaimsCarouselProps> = ({
                   {claim.title}
                 </Link>
                 
-                {/* Show description and metadata on mobile below the link */}
                 {isMobile && (
                   <div className="mt-2 space-y-1.5">
                     <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">

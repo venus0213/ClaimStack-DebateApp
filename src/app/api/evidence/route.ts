@@ -8,17 +8,14 @@ import mongoose from 'mongoose'
 
 export async function GET(request: NextRequest) {
   try {
-    // Ensure database connection
     await connectDB()
 
-    // Get query parameters
     const { searchParams } = new URL(request.url)
     const claimId = searchParams.get('claimId')
     const userId = searchParams.get('userId')
     const position = searchParams.get('position') as 'for' | 'against' | null
     const sort = searchParams.get('sort') || 'recent'
 
-    // Either claimId or userId must be provided
     if (!claimId && !userId) {
       return NextResponse.json(
         { 
@@ -33,7 +30,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Validate claim ID format if provided
     if (claimId && !mongoose.Types.ObjectId.isValid(claimId)) {
       return NextResponse.json(
         { 
@@ -48,7 +44,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Validate user ID format if provided
     if (userId && !mongoose.Types.ObjectId.isValid(userId)) {
       return NextResponse.json(
         { 
@@ -63,16 +58,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Build query
     const query: any = {}
 
-    // If filtering by userId (user's own content), show all statuses
-    // Otherwise, only show approved and pending
     if (userId) {
       query.userId = new mongoose.Types.ObjectId(userId)
-      // Don't filter by status - show all statuses for user's own content
     } else {
-      // Show both approved and pending evidence for public viewing
       query.status = { $in: [EvidenceStatus.APPROVED, EvidenceStatus.PENDING] }
     }
 
@@ -84,23 +74,20 @@ export async function GET(request: NextRequest) {
       query.position = position.toUpperCase()
     }
 
-    // Build sort
-    let sortOption: any = { createdAt: -1 } // Default: most recent first
+    let sortOption: any = { createdAt: -1 }
     if (sort === 'score') {
       sortOption = { score: -1 }
     } else if (sort === 'votes') {
       sortOption = { upvotes: -1 }
     }
 
-    // Fetch evidence - explicitly include aiSummary field
     const evidenceDocs = await Evidence.find(query)
-      .select('+aiSummary') // Explicitly include aiSummary
+      .select('+aiSummary')
       .sort(sortOption)
       .populate('userId', 'username email firstName lastName avatarUrl role createdAt')
       .populate('claimId', 'title')
       .lean()
 
-    // Get user vote and follow status if authenticated
     const user = await optionalAuth(request)
     let userVotes: Map<string, 'upvote' | 'downvote'> = new Map()
     let userFollows: Set<string> = new Set()
@@ -109,7 +96,6 @@ export async function GET(request: NextRequest) {
       const userId = new mongoose.Types.ObjectId(user.userId)
       const evidenceIds = evidenceDocs.map((doc: any) => new mongoose.Types.ObjectId(doc._id))
       
-      // Get all votes
       const votes = await Vote.find({
         evidenceId: { $in: evidenceIds },
         userId,
@@ -119,7 +105,6 @@ export async function GET(request: NextRequest) {
         userVotes.set(evidenceId, vote.voteType === VoteType.UPVOTE ? 'upvote' : 'downvote')
       })
       
-      // Get all follows
       const follows = await EvidenceFollow.find({
         evidenceId: { $in: evidenceIds },
         userId,
@@ -129,20 +114,12 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Transform to API format
     const evidence = evidenceDocs.map((doc: any) => {
-      // Handle userId - could be ObjectId or populated object
       const userIdValue = doc.userId
       const userIdString = userIdValue?._id?.toString() || userIdValue?.toString() || ''
-      
-      // Handle claimId - could be ObjectId or populated object
       const claimIdValue = doc.claimId
       const claimIdString = claimIdValue?._id?.toString() || claimIdValue?.toString() || ''
-      
-      // Check if userId is populated (has email/username fields)
       const isUserIdPopulated = userIdValue && typeof userIdValue === 'object' && 'email' in userIdValue
-      
-      // Check if claimId is populated (has title field)
       const isClaimIdPopulated = claimIdValue && typeof claimIdValue === 'object' && 'title' in claimIdValue
 
       return {

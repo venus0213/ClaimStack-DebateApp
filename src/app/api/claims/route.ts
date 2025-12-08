@@ -3,9 +3,9 @@ import connectDB from '@/lib/db/mongoose'
 import { requireAuth, optionalAuth } from '@/lib/auth/middleware'
 import { Claim, Category, ClaimStatus } from '@/lib/db/models'
 import { ClaimVote, VoteType } from '@/lib/db/models'
-import { Flag } from '@/lib/db/models'
-import { uploadFile } from '@/lib/storage/upload'
 import { generateClaimSummary, generateSEOMetadata } from '@/lib/ai/summarize'
+import { notifyAdmins } from '@/lib/utils/notifications'
+import { NotificationType } from '@/lib/db/models'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -22,21 +22,18 @@ const createClaimSchema = z.object({
   fileName: z.string().optional(),
   fileSize: z.number().optional(),
   fileType: z.string().optional(),
+  expeditedReview: z.boolean().optional(),
 })
 
 export async function GET(request: NextRequest) {
   try {
-    // Ensure database connection
     await connectDB()
 
-    // Get query parameters
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const userId = searchParams.get('userId')
     const upvotedBy = searchParams.get('upvotedBy')
     
-    // Allow public access to approved claims, require auth for others
-    // Also require auth when filtering by userId (user's own claims) or upvotedBy
     let authResult: { user: { userId: string } } | null = null
     if (status !== 'approved' || userId || upvotedBy) {
       const authCheck = await requireAuth(request)
@@ -52,7 +49,6 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const skip = (page - 1) * limit
 
-    // Handle upvotedBy parameter - fetch claims that the current user has upvoted (excluding their own claims)
     if (upvotedBy === 'me') {
       if (!authResult) {
         return NextResponse.json(
@@ -71,13 +67,11 @@ export async function GET(request: NextRequest) {
       }
       const currentUserId = new mongoose.Types.ObjectId(authResult.user.userId)
       
-      // Find all upvotes by the current user
       const upvotes = await ClaimVote.find({
         userId: currentUserId,
         voteType: VoteType.UPVOTE,
       }).lean()
       
-      // Get claim IDs from upvotes
       const upvotedClaimIds = upvotes.map((vote: any) => vote.claimId)
       
       if (upvotedClaimIds.length === 0) {
@@ -95,16 +89,14 @@ export async function GET(request: NextRequest) {
         })
       }
       
-      // Build query for upvoted claims, excluding user's own claims
       const query: any = {
         _id: { $in: upvotedClaimIds },
-        userId: { $ne: currentUserId }, // Exclude user's own claims
+        userId: { $ne: currentUserId },
       }
       
       if (status) {
         query.status = status.toUpperCase()
       } else {
-        // Default to approved claims if no status specified
         query.status = ClaimStatus.APPROVED
       }
       
@@ -127,8 +119,7 @@ export async function GET(request: NextRequest) {
         ]
       }
       
-      // Build sort
-      let sort: any = { createdAt: -1 } // Default: newest first
+      let sort: any = { createdAt: -1 } 
       if (sortBy === 'popular') {
         sort = { viewCount: -1 }
       } else if (sortBy === 'trending') {
@@ -145,7 +136,6 @@ export async function GET(request: NextRequest) {
         sort = { createdAt: 1 }
       }
       
-      // Fetch claims
       const claims = await Claim.find(query)
         .populate('userId', 'username email firstName lastName avatarUrl')
         .populate('categoryId', 'name slug')
@@ -154,10 +144,7 @@ export async function GET(request: NextRequest) {
         .limit(limit)
         .lean()
       
-      // Get total count
       const total = await Claim.countDocuments(query)
-      
-      // Get user vote status (should all be upvotes, but include for consistency)
       const claimIds = claims.map((claim: any) => new mongoose.Types.ObjectId(claim._id))
       const votes = await ClaimVote.find({
         claimId: { $in: claimIds },
@@ -169,7 +156,6 @@ export async function GET(request: NextRequest) {
         userVotes.set(claimId, vote.voteType === VoteType.UPVOTE ? 'upvote' : 'downvote')
       })
       
-      // Transform claims to match frontend format
       const transformedClaims = claims.map((claim: any) => {
         const claimUserId = claim.userId instanceof mongoose.Types.ObjectId 
           ? claim.userId.toString() 
@@ -238,7 +224,6 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Build query
     const query: any = {}
     
     if (status) {
@@ -246,7 +231,6 @@ export async function GET(request: NextRequest) {
     }
     
     if (userId) {
-      // Validate userId format
       if (mongoose.Types.ObjectId.isValid(userId)) {
         query.userId = new mongoose.Types.ObjectId(userId)
       } else {
@@ -280,8 +264,7 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Build sort
-    let sort: any = { createdAt: -1 } // Default: newest first
+    let sort: any = { createdAt: -1 }
     if (sortBy === 'popular') {
       sort = { viewCount: -1 }
     } else if (sortBy === 'trending') {
@@ -298,7 +281,6 @@ export async function GET(request: NextRequest) {
       sort = { createdAt: 1 }
     }
 
-    // Fetch claims
     const claims = await Claim.find(query)
       .populate('userId', 'username email firstName lastName avatarUrl')
       .populate('categoryId', 'name slug')
@@ -307,10 +289,8 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .lean()
 
-    // Get total count
     const total = await Claim.countDocuments(query)
 
-    // Get user vote status if authenticated
     const user = await optionalAuth(request)
     let userVotes: Map<string, 'upvote' | 'downvote'> = new Map()
     
@@ -318,7 +298,6 @@ export async function GET(request: NextRequest) {
       const userId = new mongoose.Types.ObjectId(user.userId)
       const claimIds = claims.map((claim: any) => new mongoose.Types.ObjectId(claim._id))
       
-      // Get all votes
       const votes = await ClaimVote.find({
         claimId: { $in: claimIds },
         userId,
@@ -329,11 +308,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Check if user is admin or creator for editing fields visibility
     const isAdmin = user && (user.role?.toUpperCase() === 'ADMIN' || user.role?.toUpperCase() === 'MODERATOR')
     const currentUserId = user?.userId
-
-    // Transform claims to match frontend format
     const transformedClaims = claims.map((claim: any) => {
       const userId = claim.userId instanceof mongoose.Types.ObjectId 
         ? claim.userId.toString() 
@@ -390,7 +366,6 @@ export async function GET(request: NextRequest) {
         } : undefined,
       }
 
-      // Include title and description editing fields only for admins and creators
       if (canSeeEditFields) {
         claimResponse.originalTitle = claim.originalTitle
         claimResponse.titleEdited = claim.titleEdited || false
@@ -442,7 +417,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
     const authResult = await requireAuth(request)
     if (authResult.error) {
       return authResult.error
@@ -450,10 +424,8 @@ export async function POST(request: NextRequest) {
 
     const user = authResult.user
 
-    // Ensure database connection
     await connectDB()
 
-    // Parse request body
     let body: any
     try {
       body = await request.json()
@@ -470,7 +442,6 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Validate input
     const validationResult = createClaimSchema.safeParse(body)
     if (!validationResult.success) {
       return NextResponse.json(
@@ -486,9 +457,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { title, description, category, evidenceType, evidenceUrl, evidenceDescription, position, url, fileUrl, fileName, fileSize, fileType } = validationResult.data
+    const { title, description, category, evidenceType, evidenceUrl, evidenceDescription, position, url, fileUrl, fileName, fileSize, fileType, expeditedReview } = validationResult.data
 
-    // Find or create category if provided
     let categoryId: mongoose.Types.ObjectId | undefined
     if (category) {
       const categoryDoc = await Category.findOne({ slug: category.toLowerCase() })
@@ -497,12 +467,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create claim
-    // Set originalTitle = title on create so history is always available
     const claim = await Claim.create({
       userId: new mongoose.Types.ObjectId(user.userId),
       title,
-      originalTitle: title, // Set original title on creation as recommended
+      originalTitle: title,
       description,
       categoryId,
       status: ClaimStatus.PENDING,
@@ -512,14 +480,33 @@ export async function POST(request: NextRequest) {
       fileName,
       fileSize,
       fileType,
-      titleEdited: false, // Not edited yet
+      titleEdited: false,
+      expeditedReview: expeditedReview || false,
     })
 
-    // Populate claim with user and category
+    if (expeditedReview) {
+      notifyAdmins({
+        type: NotificationType.EXPEDITED_REVIEW_REQUESTED,
+        title: 'Expedited review requested',
+        message: `"${title}" has been submitted with an expedited review request`,
+        link: `/moderation?claimId=${claim._id.toString()}`,
+      }).catch((error) => {
+        console.error('Error notifying admins about expedited review request:', error)
+      })
+    } else {
+      notifyAdmins({
+        type: NotificationType.CLAIM_SUBMITTED,
+        title: 'New claim submitted for review',
+        message: `"${title}" has been submitted and is pending approval`,
+        link: `/moderation?claimId=${claim._id.toString()}`,
+      }).catch((error) => {
+        console.error('Error notifying admins about claim submission:', error)
+      })
+    }
+
     await claim.populate('userId', 'username email firstName lastName avatarUrl')
     await claim.populate('categoryId', 'name slug')
 
-    // Generate SEO metadata (async, non-blocking)
     const categoryName = claim.categoryId && !(claim.categoryId instanceof mongoose.Types.ObjectId)
       ? (claim.categoryId as any).name
       : undefined
@@ -527,7 +514,7 @@ export async function POST(request: NextRequest) {
     generateSEOMetadata({
       claimTitle: title,
       claimCategory: categoryName,
-      leadingSide: null, // Initially null, will be updated when score is calculated
+      leadingSide: null,
     })
       .then(async (seoMetadata) => {
         try {
@@ -543,7 +530,6 @@ export async function POST(request: NextRequest) {
         console.warn('SEO metadata generation completed with fallback or error:', error?.message || 'Unknown error')
       })
 
-    // Generate AI summary for claim (async, non-blocking)
     if (process.env.OPENAI_API_KEY && (url || fileUrl)) {
       generateClaimSummary({
         title,
@@ -555,8 +541,6 @@ export async function POST(request: NextRequest) {
       })
         .then(async (summary) => {
           try {
-            // For now, we'll store it in forSummary if it's a general summary
-            // You might want to adjust this based on your needs
             await Claim.findByIdAndUpdate(claim._id, {
               forSummary: summary,
               summaryUpdatedAt: new Date(),
@@ -566,7 +550,6 @@ export async function POST(request: NextRequest) {
           }
         })
         .catch((error) => {
-          // Error is already handled in generateClaimSummary, just log here
           console.warn('Claim summary generation completed with fallback or error:', error?.message || 'Unknown error')
         })
     }
@@ -608,6 +591,7 @@ export async function POST(request: NextRequest) {
         fileType: populatedClaim.fileType,
         seoTitle: populatedClaim.seoTitle,
         seoDescription: populatedClaim.seoDescription,
+        expeditedReview: populatedClaim.expeditedReview,
         createdAt: populatedClaim.createdAt,
         updatedAt: populatedClaim.updatedAt,
         user: populatedClaim.userId instanceof mongoose.Types.ObjectId ? undefined : {
@@ -636,7 +620,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to create claim'
     
-    // Always return JSON, even on errors
     return NextResponse.json(
       { 
         success: false,

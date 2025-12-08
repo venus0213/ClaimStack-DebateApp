@@ -44,7 +44,7 @@ interface ClaimsState {
     seoDescription?: string
     titleEditReason?: string
   }) => Promise<{ success: boolean; error?: string }>
-  rejectClaim: (id: string, reason?: string) => Promise<{ success: boolean; error?: string }>
+  rejectClaim: (id: string, reason?: string, feedback?: string, notifyUser?: boolean) => Promise<{ success: boolean; error?: string }>
   createClaim: (data: {
     title: string
     description?: string
@@ -58,6 +58,7 @@ interface ClaimsState {
     fileName?: string
     fileSize?: number
     fileType?: string
+    expeditedReview?: boolean
   }) => Promise<{ success: boolean; claim?: Claim; error?: string }>
 }
 
@@ -385,7 +386,7 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
     }
   },
 
-  rejectClaim: async (id: string, reason?: string) => {
+  rejectClaim: async (id: string, reason?: string, feedback?: string, notifyUser?: boolean) => {
     try {
       set({ isLoading: true, error: null })
 
@@ -397,6 +398,8 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
         body: JSON.stringify({
           status: 'rejected',
           reason: reason,
+          rejectionFeedback: feedback,
+          notifyUser: notifyUser,
         }),
       })
 
@@ -406,7 +409,6 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
         throw new Error(data.error || 'Failed to reject claim')
       }
 
-      // Update claim in store
       if (data.claim) {
         get().updateClaim(id, { status: 'rejected' })
       }
@@ -424,13 +426,11 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
     try {
       set({ isLoading: true, error: null })
 
-      // If file is provided, upload it first
       let fileUrl: string | undefined
       let fileName: string | undefined
       let fileSize: number | undefined
       let fileType: string | undefined
 
-      // Upload file if provided
       if (data.file) {
         const formData = new FormData()
         formData.append('file', data.file)
@@ -441,7 +441,6 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
           body: formData,
         })
 
-        // Check if response is JSON
         const uploadContentType = uploadResponse.headers.get('content-type')
         if (!uploadContentType || !uploadContentType.includes('application/json')) {
           const text = await uploadResponse.text()
@@ -460,14 +459,13 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
         fileType = uploadData.data.fileType
       }
 
-      // Prepare request body
       const requestBody: any = {
         title: data.title,
         description: data.description,
         category: data.category,
+        expeditedReview: data.expeditedReview || false,
       }
 
-      // Add file information directly to claim if file is uploaded
       if (fileUrl) {
         requestBody.fileUrl = fileUrl
         requestBody.fileName = fileName
@@ -475,18 +473,15 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
         requestBody.fileType = fileType
       }
 
-      // Add URL directly to claim if URL is provided
       if (data.evidenceUrl && data.evidenceType && data.evidenceType !== 'file') {
         requestBody.url = data.evidenceUrl
       }
 
-      // Add evidence data if provided (this creates separate evidence record)
       if (data.evidenceType) {
         requestBody.evidenceType = data.evidenceType
         requestBody.evidenceDescription = data.evidenceDescription
         requestBody.position = data.position
 
-        // Add type-specific fields for evidence
         if (data.evidenceType === 'file') {
           requestBody.fileUrl = fileUrl || data.fileUrl
           requestBody.fileName = fileName || data.fileName
@@ -497,7 +492,6 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
         }
       }
 
-      // Create claim
       const response = await fetch('/api/claims', {
         method: 'POST',
         headers: {
@@ -506,7 +500,6 @@ export const useClaimsStore = create<ClaimsState>((set, get) => ({
         body: JSON.stringify(requestBody),
       })
 
-      // Check if response is JSON
       const contentType = response.headers.get('content-type')
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text()

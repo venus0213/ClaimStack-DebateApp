@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react'
 import { ContentCard } from '@/components/content/ContentCard'
-import { Claim } from '@/lib/types'
 import { SearchIcon } from '@/components/ui/Icons'
 import { FilterButton } from '@/components/ui/FilterButton'
 import { FilterValues } from '@/components/ui/FilterModal'
@@ -24,14 +23,12 @@ export default function BrowsePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState<FilterValues | null>(null)
 
-  // Fetch approved claims on mount
   useEffect(() => {
     fetchApprovedClaims({ refresh: true })
   }, [fetchApprovedClaims])
 
   const handleFiltersChange = (newFilters: FilterValues) => {
     setFilters(newFilters)
-    // Apply filters to your data here
     console.log('Filters applied:', newFilters)
   }
 
@@ -46,7 +43,6 @@ export default function BrowsePage() {
     )
   })
 
-  // Sort claims based on activeTab
   const sortedClaims = [...filteredClaims].sort((a, b) => {
     switch (activeTab) {
       case 'newest':
@@ -61,7 +57,6 @@ export default function BrowsePage() {
         if (bVotes !== aVotes) {
           return bVotes - aVotes
         }
-        // Secondary sort by newest if votes are equal
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       
       case 'most-viewed':
@@ -75,7 +70,6 @@ export default function BrowsePage() {
         if (bFollows !== aFollows) {
           return bFollows - aFollows
         }
-        // Secondary sort by newest if follows are equal
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       
       default:

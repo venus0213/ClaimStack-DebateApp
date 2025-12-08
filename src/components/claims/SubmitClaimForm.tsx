@@ -29,7 +29,7 @@ const evidenceTypeOptions: DropdownOption[] = [
 ]
 
 const acceptedFormats = ['pdf', 'docx', 'jpg', 'png', 'mp4']
-const maxSize = 25 * 1024 * 1024 // 25MB
+const maxSize = 25 * 1024 * 1024
 
 export interface SubmitClaimFormProps {
   onSuccess?: () => void
@@ -52,6 +52,7 @@ export const SubmitClaimForm: React.FC<SubmitClaimFormProps> = ({
     evidenceUrl: '',
     evidenceDescription: '',
     position: 'for' as 'for' | 'against',
+    expeditedReview: false,
   })
   const [file, setFile] = useState<File | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
@@ -67,14 +68,12 @@ export const SubmitClaimForm: React.FC<SubmitClaimFormProps> = ({
     const selectedFile = e.target.files?.[0]
     if (!selectedFile) return
 
-    // Validate file size
     if (selectedFile.size > maxSize) {
       setFileError('File exceeds maximum size.')
       setFile(null)
       return
     }
 
-    // Validate file type
     const extension = selectedFile.name.split('.').pop()?.toLowerCase()
     if (!extension || !acceptedFormats.includes(extension)) {
       setFileError(`Accepted formats: ${acceptedFormats.join(', ')}`)
@@ -89,7 +88,6 @@ export const SubmitClaimForm: React.FC<SubmitClaimFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validate form
     const newErrors: { title?: string; category?: string } = {}
     
     if (!formData.title.trim()) {
@@ -100,16 +98,13 @@ export const SubmitClaimForm: React.FC<SubmitClaimFormProps> = ({
       newErrors.category = 'Please select a category'
     }
     
-    // Validate evidence if provided
     if (formData.evidenceType === 'file' && !file) {
       setFileError('Please select a file')
       return
     }
     
     if (formData.evidenceType !== 'file' && formData.evidenceUrl && !formData.evidenceUrl.trim()) {
-      // URL evidence is optional, but if evidenceType is set, URL should be provided
       if (formData.evidenceType === 'url' || formData.evidenceType === 'youtube' || formData.evidenceType === 'tweet') {
-        // This is handled by optional field, so we'll allow empty
       }
     }
     
@@ -122,15 +117,14 @@ export const SubmitClaimForm: React.FC<SubmitClaimFormProps> = ({
     setSubmitError(null)
     setFileError(null)
 
-    // Prepare claim data
     const claimData: any = {
       title: formData.title.trim(),
       description: formData.description.trim() || undefined,
       category: formData.category || undefined,
       position: formData.position,
+      expeditedReview: formData.expeditedReview,
     }
 
-    // Add evidence data if provided
     if (formData.evidenceType === 'file' && file) {
       claimData.evidenceType = 'file'
       claimData.file = file
@@ -141,12 +135,10 @@ export const SubmitClaimForm: React.FC<SubmitClaimFormProps> = ({
       claimData.evidenceDescription = formData.evidenceDescription.trim() || undefined
     }
 
-    // Create claim using store
     const result = await createClaim(claimData)
 
     if (result.success && result.claim) {
       setIsSuccessModalOpen(true)
-      // Reset form
       setFormData({
         title: '',
         category: '',
@@ -155,6 +147,7 @@ export const SubmitClaimForm: React.FC<SubmitClaimFormProps> = ({
         evidenceUrl: '',
         evidenceDescription: '',
         position: 'for',
+        expeditedReview: false,
       })
       setFile(null)
       setFileError(null)
@@ -318,6 +311,23 @@ export const SubmitClaimForm: React.FC<SubmitClaimFormProps> = ({
             />
           </div> */}
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="flex items-center space-x-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={formData.expeditedReview}
+            onChange={(e) => setFormData({ ...formData, expeditedReview: e.target.checked })}
+            className="w-4 h-4 text-blue-600 dark:text-blue-400 border-gray-300 dark:border-gray-600 rounded accent-blue-600 dark:accent-blue-400"
+          />
+          <span className="text-sm text-gray-700 dark:text-gray-300">
+            Request expedited review
+          </span>
+        </label>
+        <p className="text-xs text-gray-500 dark:text-gray-400 ml-6">
+          Check this box if you need your claim reviewed urgently. The admin team will be notified.
+        </p>
       </div>
 
       {submitError && (

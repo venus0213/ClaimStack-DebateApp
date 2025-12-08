@@ -50,7 +50,6 @@ export default function ContentManagementPage() {
     }
   }, [user, authLoading, router])
 
-  // Reusable function to fetch claims (without evidence/perspectives)
   const fetchClaims = async () => {
     setIsLoading(true)
     setError(null)
@@ -72,12 +71,10 @@ export default function ContentManagementPage() {
         }
       })
 
-      // Remove duplicates (in case any claim appears in multiple statuses)
       const uniqueClaims = Array.from(
         new Map(allClaims.map((claim) => [claim.id, claim])).values()
       )
 
-      // Initialize claims without evidence/perspectives (lazy load them)
       const claimsWithContent: ClaimWithContent[] = uniqueClaims.map((claim: Claim) => ({
         ...claim,
         evidence: undefined,
@@ -95,12 +92,10 @@ export default function ContentManagementPage() {
     }
   }
 
-  // Fetch evidence and perspectives for a specific claim (lazy loading)
   const fetchClaimContent = async (claimId: string) => {
     const claim = claims.find((c) => c.id === claimId)
     if (!claim || claim._contentLoaded || claim._loadingContent) return
 
-    // Mark as loading
     setClaims((prev) =>
       prev.map((c) =>
         c.id === claimId ? { ...c, _loadingContent: true } : c
@@ -108,7 +103,6 @@ export default function ContentManagementPage() {
     )
 
     try {
-      // Fetch evidence and perspectives in parallel
       const [evidenceResponse, perspectivesResponse] = await Promise.all([
         fetch(`/api/evidence?claimId=${claimId}`, {
           credentials: 'include',
@@ -134,7 +128,6 @@ export default function ContentManagementPage() {
         }
       }
 
-      // Update the claim with loaded content
       setClaims((prev) =>
         prev.map((c) =>
           c.id === claimId
@@ -182,7 +175,6 @@ export default function ContentManagementPage() {
         newSet.delete(claimId)
       } else {
         newSet.add(claimId)
-        // Fetch content when expanding (lazy load)
         fetchClaimContent(claimId)
       }
       return newSet
@@ -230,7 +222,6 @@ export default function ContentManagementPage() {
       : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
   }
 
-  // Filter claims based on search and status
   const filteredClaims = claims.filter((claim) => {
     const matchesSearch =
       !searchQuery ||
@@ -255,7 +246,6 @@ export default function ContentManagementPage() {
     return lines.slice(0, maxLines).join('\n')
   }
 
-  // Delete function
   const handleDelete = async () => {
     if (!itemToDelete) return
 
@@ -280,7 +270,6 @@ export default function ContentManagementPage() {
         throw new Error(data.error || 'Failed to delete')
       }
 
-      // Refresh the data (only claims, not content)
       await fetchClaims()
       setDeleteModalOpen(false)
       setItemToDelete(null)
@@ -423,7 +412,6 @@ export default function ContentManagementPage() {
                               <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1 sm:line-clamp-none">
                                 {truncateDescription(claim.description, 40)}{claim.descriptionEdited ? ' (edited)' : ''}
                               </div>
-                              {/* Mobile: Show status and votes inline */}
                               <div className="flex items-center gap-2 mt-1 sm:hidden">
                                 <span
                                   className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeColor(
@@ -440,13 +428,11 @@ export default function ContentManagementPage() {
                             <td className="py-2 sm:py-3 px-2 sm:px-4">
                               {claim.user ? (
                                 <>
-                                  {/* Mobile: Only username */}
                                   <div className="sm:hidden">
                                     <span className="text-xs font-medium text-gray-900 dark:text-gray-100">
                                       @{claim.user.username}
                                     </span>
                                   </div>
-                                  {/* Desktop: Full author info */}
                                   <div className="hidden sm:flex items-center gap-2">
                                     <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-blue-500 dark:border-blue-400 flex items-center justify-center overflow-hidden bg-gray-100 dark:bg-gray-700">
                                       {claim.user.avatarUrl ? (
@@ -523,7 +509,6 @@ export default function ContentManagementPage() {
                             </td>
                           </tr>
 
-                          {/* Expanded Content: Evidence and Perspectives */}
                           {isExpanded && (
                             <tr>
                               <td colSpan={8} className="py-3 sm:py-4 px-2 sm:px-4 bg-gray-50 dark:bg-gray-900/50">
@@ -533,7 +518,6 @@ export default function ContentManagementPage() {
                                   </div>
                                 ) : (
                                   <div className="space-y-4 sm:space-y-6">
-                                    {/* Evidence Section */}
                                     {evidenceCount > 0 && claim.evidence && (
                                     <div>
                                       <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 sm:mb-3">
@@ -614,7 +598,6 @@ export default function ContentManagementPage() {
                                     </div>
                                   )}
 
-                                    {/* Perspectives Section */}
                                     {perspectivesCount > 0 && claim.perspectives && (
                                       <div>
                                         <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 sm:mb-3">
@@ -715,7 +698,6 @@ export default function ContentManagementPage() {
         )}
       </div>
 
-      {/* Edit Claim Modal */}
       {claimToEdit && (
         <EditClaimModal
           isOpen={editModalOpen}
@@ -724,7 +706,6 @@ export default function ContentManagementPage() {
             setClaimToEdit(null)
           }}
           onConfirm={async () => {
-            // Refresh the data after editing (only claims, not content)
             await fetchClaims()
             setEditModalOpen(false)
             setClaimToEdit(null)
@@ -733,8 +714,6 @@ export default function ContentManagementPage() {
           claim={claimToEdit}
         />
       )}
-
-      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={deleteModalOpen}
         onClose={() => {

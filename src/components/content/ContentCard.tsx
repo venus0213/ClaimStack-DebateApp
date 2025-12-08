@@ -3,17 +3,18 @@
 import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { Claim, Evidence, Perspective } from '@/lib/types'
-import type { Evidence as EvidenceType, Perspective as PerspectiveType } from '@/lib/types'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { VoteButtons } from '@/components/voting/VoteButtons'
-import { ShareIcon, UserIcon, TrashIcon, ClockIcon, FlagIcon, CheckIcon, EditIcon } from '@/components/ui/Icons'
+import { UserIcon, TrashIcon, ClockIcon, FlagIcon, CheckIcon, EditIcon } from '@/components/ui/Icons'
 import { ProtectedLink } from '@/components/ui/ProtectedLink'
 import { Modal } from '@/components/ui/Modal'
 import { useVote } from '@/hooks/useVote'
 import { useFollow } from '@/hooks/useFollow'
 import { useAuth } from '@/hooks/useAuth'
+import { ReplyModal } from '@/components/replies/ReplyModal'
 import { cn } from '@/lib/utils/cn'
 
 interface ContentCardProps {
@@ -23,19 +24,17 @@ interface ContentCardProps {
   userVote?: 'upvote' | 'downvote' | null
   isFollowing?: boolean
   href?: string
-  claimId?: string // For evidence/perspective to update claim score
-  showDelete?: boolean // Show delete button (for profile page - evidence/perspectives only)
-  onDelete?: (itemId: string, itemType: 'claim' | 'evidence' | 'perspective') => void // Delete callback
-  showEdit?: boolean // Show edit button (for profile page - claims only)
-  onEdit?: (itemId: string) => void // Edit callback
+  claimId?: string
+  showDelete?: boolean
+  onDelete?: (itemId: string, itemType: 'claim' | 'evidence' | 'perspective') => void
+  showEdit?: boolean
+  onEdit?: (itemId: string) => void
 }
 
-// Type guard to check if item is Evidence
 function isEvidence(item: Claim | Evidence | Perspective): item is Evidence {
   return 'upvotes' in item && 'downvotes' in item && 'position' in item && 'type' in item
 }
 
-// Type guard to check if item is Perspective
 function isPerspective(item: Claim | Evidence | Perspective): item is Perspective {
   return 'upvotes' in item && 'downvotes' in item && 'position' in item && 'body' in item && !('type' in item)
 }
@@ -68,14 +67,13 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   const user = item.user
   const itemId = item.id
   const { user: currentUser } = useAuth()
+  const pathname = usePathname()
+  const isBrowsePage = pathname === '/browse'
 
-  // Determine item type for hooks
   const itemType = isClaimItem ? 'claim' : isEvidenceItem ? 'evidence' : 'perspective'
   
-  // Get claimId from item if not provided
   const effectiveClaimId = claimId || (isEvidenceItem ? (item as Evidence).claimId : isPerspectiveItem ? (item as Perspective).claimId : undefined)
 
-  // Get initial values from item
   const initialUpvotes = isClaimItem 
     ? (item as Claim).upvotes || 0
     : (isEvidenceItem || isPerspectiveItem) 
@@ -96,13 +94,12 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   const initialIsFollowing = propIsFollowing !== undefined
     ? propIsFollowing
     : (isClaimItem
-      ? false // Claims don't have isFollowing in the type
+      ? false
       : (item as Evidence | Perspective).isFollowing || false)
   const initialFollowCount = isClaimItem
     ? (item as Claim).followCount || 0
     : (item as Evidence | Perspective).followCount || 0
 
-  // Use global state hooks
   const { upvotes, downvotes, userVote, isVoting, vote } = useVote({
     itemId,
     itemType,
@@ -112,30 +109,25 @@ export const ContentCard: React.FC<ContentCardProps> = ({
     claimId: effectiveClaimId,
   })
 
-  const { isFollowing, followCount, isFollowingAction, toggleFollow } = useFollow({
+  const { isFollowing, isFollowingAction, toggleFollow } = useFollow({
     itemId,
     itemType,
     currentIsFollowing: initialIsFollowing,
     currentFollowCount: initialFollowCount,
   })
 
-  // State for description expansion
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
   const [showReadMore, setShowReadMore] = useState(false)
   const descriptionRef = useRef<HTMLParagraphElement>(null)
-  
-  // State for delete confirmation modal
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  
-  // State to track if vote dropdown is open
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [showReplyModal, setShowReplyModal] = useState(false)
+  const [replyCount, setReplyCount] = useState<number | null>(null)
 
-  // Check if description exceeds 2 lines
   useEffect(() => {
     if (descriptionRef.current && !isDescriptionExpanded) {
       const element = descriptionRef.current
-      // Check if scrollHeight is greater than clientHeight (text is truncated)
       const isTruncated = element.scrollHeight > element.clientHeight
       setShowReadMore(isTruncated)
     } else {
@@ -143,14 +135,38 @@ export const ContentCard: React.FC<ContentCardProps> = ({
     }
   }, [description, isDescriptionExpanded])
 
-  // Sync with props if they change (for external control)
   useEffect(() => {
     if (propUserVote !== undefined && propUserVote !== userVote) {
       // The hook will handle this through its internal state
     }
   }, [propUserVote, userVote])
 
-  // Determine card type for display
+  // Fetch reply count when component mounts (only for evidence/perspectives)
+  useEffect(() => {
+    if ((isEvidenceItem || isPerspectiveItem) && itemId) {
+      const fetchReplyCount = async () => {
+        try {
+          const params = new URLSearchParams({
+            targetType: isEvidenceItem ? 'evidence' : 'perspective',
+            targetId: itemId,
+          })
+          const response = await fetch(`/api/replies?${params.toString()}`, {
+            credentials: 'include',
+          })
+          if (response.ok) {
+            const data = await response.json()
+            if (data.success && data.replies) {
+              setReplyCount(data.replies.length)
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching reply count:', error)
+        }
+      }
+      fetchReplyCount()
+    }
+  }, [isEvidenceItem, isPerspectiveItem, itemId])
+
   const cardType = isEvidenceItem ? 'Evidence' : isPerspectiveItem ? 'Perspective' : ''
   const cardTypeColor = isEvidenceItem 
     ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' 
@@ -158,8 +174,6 @@ export const ContentCard: React.FC<ContentCardProps> = ({
     ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300' 
     : ''
 
-  // For claims, use the provided href or default to /claims/{id}
-  // For evidence/perspectives, link to their claim detail page
   const titleHref = href || (
     isEvidenceItem || isPerspectiveItem
       ? effectiveClaimId 
@@ -171,7 +185,6 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
     try {
       await vote(voteType)
-      // Call optional callback
       onVote?.(itemId, voteType)
     } catch (error) {
       // Error is already handled in the hook
@@ -224,8 +237,11 @@ export const ContentCard: React.FC<ContentCardProps> = ({
         </div>
       )}
       
-      <div className="flex items-start justify-between mb-2 sm:mb-3">
-        <div className="flex items-center space-x-2">
+      <div className={cn(
+        "flex items-start justify-between mb-2 sm:mb-3",
+        badgeImage && "pr-12 sm:pr-16"
+      )}>
+        <div className="flex items-center space-x-2 flex-1 min-w-0">
           {user?.id ? (
             <Link 
               href={currentUser?.id === user.id ? '/profile' : `/users/${user.id}`}
@@ -237,26 +253,32 @@ export const ContentCard: React.FC<ContentCardProps> = ({
             <span className="text-xs sm:text-sm text-[#030303] dark:text-gray-100 font-medium">@{user?.username || 'user'}</span>
           )}
         </div>
-        <div className='flex items-center space-x-2'>
+        <div className='flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0 ml-2 flex-wrap gap-y-1'>
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${cardTypeColor}`}>
             {cardType}
           </span>
-          {/* Status badge only for claims */}
+          {/* Status badge only for claims - show "approved" only when not on Browse page */}
           {isClaimItem && (item as Claim).status && (
-            <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1 ${
-              (item as Claim).status === 'approved' 
-                ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
-                : (item as Claim).status === 'rejected'
-                ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
-                : (item as Claim).status === 'pending'
-                ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-            }`}>
-              {(item as Claim).status === 'approved' && <CheckIcon className="w-3 h-3" />}
-              {(item as Claim).status === 'rejected' && <FlagIcon className="w-3 h-3" />}
-              {(item as Claim).status === 'pending' && <ClockIcon className="w-3 h-3" />}
-              <span className="capitalize">{(item as Claim).status}</span>
-            </span>
+            <>
+              {(item as Claim).status === 'approved' && !isBrowsePage ? (
+                <span className="px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 whitespace-nowrap">
+                  <CheckIcon className="w-3 h-3" />
+                  <span className="capitalize">{(item as Claim).status}</span>
+                </span>
+              ) : (item as Claim).status !== 'approved' ? (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1 whitespace-nowrap ${
+                  (item as Claim).status === 'rejected'
+                    ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
+                    : (item as Claim).status === 'pending'
+                    ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                }`}>
+                  {(item as Claim).status === 'rejected' && <FlagIcon className="w-3 h-3" />}
+                  {(item as Claim).status === 'pending' && <ClockIcon className="w-3 h-3" />}
+                  <span className="capitalize">{(item as Claim).status}</span>
+                </span>
+              ) : null}
+            </>
           )}
           {showEdit && onEdit && (
             <button
@@ -265,7 +287,7 @@ export const ContentCard: React.FC<ContentCardProps> = ({
                 e.stopPropagation()
                 onEdit(itemId)
               }}
-              className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors p-1"
+              className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors p-1 flex-shrink-0"
               title="Edit claim"
             >
               <EditIcon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -278,7 +300,7 @@ export const ContentCard: React.FC<ContentCardProps> = ({
                 e.stopPropagation()
                 setShowDeleteModal(true)
               }}
-              className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors p-1"
+              className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors p-1 flex-shrink-0"
               title="Delete post"
             >
               <TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -360,18 +382,74 @@ export const ContentCard: React.FC<ContentCardProps> = ({
             {isFollowing ? 'Following' : 'Follow'}
           </Button>
 
-          <VoteButtons
-            upvotes={upvotes}
-            downvotes={downvotes}
-            userVote={userVote}
-            onVote={handleVote}
-            disabled={isVoting}
-            itemId={itemId}
-            itemType={itemType}
-            onDropdownChange={setIsDropdownOpen}
-          />
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Reply Button - Only for Evidence and Perspectives */}
+            {(isEvidenceItem || isPerspectiveItem) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowReplyModal(true)}
+                className="rounded-full text-xs sm:text-sm px-3 sm:px-4 flex items-center gap-1.5 sm:gap-2"
+              >
+                <span>Reply</span>
+                {replyCount !== null && replyCount > 0 && (
+                  <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full text-xs font-medium">
+                    {replyCount}
+                  </span>
+                )}
+              </Button>
+            )}
+
+            <VoteButtons
+              upvotes={upvotes}
+              downvotes={downvotes}
+              userVote={userVote}
+              onVote={handleVote}
+              disabled={isVoting}
+              itemId={itemId}
+              itemType={itemType}
+              onDropdownChange={setIsDropdownOpen}
+            />
+          </div>
         </div>
       </div>
+
+      {/* Reply Modal - Only for Evidence and Perspectives */}
+      {(isEvidenceItem || isPerspectiveItem) && (
+        <ReplyModal
+          isOpen={showReplyModal}
+          onClose={() => {
+            setShowReplyModal(false)
+            // Refresh reply count when modal closes
+            if ((isEvidenceItem || isPerspectiveItem) && itemId) {
+              const fetchReplyCount = async () => {
+                try {
+                  const params = new URLSearchParams({
+                    targetType: isEvidenceItem ? 'evidence' : 'perspective',
+                    targetId: itemId,
+                  })
+                  const response = await fetch(`/api/replies?${params.toString()}`, {
+                    credentials: 'include',
+                  })
+                  if (response.ok) {
+                    const data = await response.json()
+                    if (data.success && data.replies) {
+                      setReplyCount(data.replies.length)
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error fetching reply count:', error)
+                }
+              }
+              fetchReplyCount()
+            }
+          }}
+          targetType={isEvidenceItem ? 'evidence' : 'perspective'}
+          targetId={itemId}
+          item={item as Evidence | Perspective}
+          onReplyCountChange={(count) => setReplyCount(count)}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDelete && onDelete && (

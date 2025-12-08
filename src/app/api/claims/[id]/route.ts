@@ -10,16 +10,19 @@ import { Vote } from '@/lib/db/models'
 import { PerspectiveVote } from '@/lib/db/models'
 import { EvidenceFollow } from '@/lib/db/models'
 import { PerspectiveFollow } from '@/lib/db/models'
+import { NotificationType } from '@/lib/db/models'
 import { updateClaimScore } from '@/lib/utils/claimScore'
 import { deleteFile } from '@/lib/storage/upload'
+import { createNotification, notifyAllUsers } from '@/lib/utils/notifications'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
 const updateClaimStatusSchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected', 'flagged', 'closed']),
   reason: z.string().optional(),
+  rejectionFeedback: z.string().optional(),
+  notifyUser: z.boolean().optional(),
   metadata: z.record(z.any()).optional(),
-  // Title and description editing fields
   title: z.string().min(1).max(500).optional(),
   description: z.string().max(5000).optional(),
   seoTitle: z.string().max(60).optional(),
@@ -35,10 +38,8 @@ export async function GET(
   try {
     const claimId = params.id
 
-    // Ensure database connection
     await connectDB()
 
-    // Validate claim ID format
     if (!mongoose.Types.ObjectId.isValid(claimId)) {
       return NextResponse.json(
         { 
@@ -52,7 +53,6 @@ export async function GET(
       )
     }
 
-    // Find the claim
     let claim = await Claim.findById(new mongoose.Types.ObjectId(claimId))
       .populate('userId', 'username email firstName lastName avatarUrl role createdAt')
       .populate('categoryId', 'name slug description')
@@ -70,10 +70,8 @@ export async function GET(
       )
     }
 
-    // Recalculate and update claim score to ensure it's accurate
     try {
       await updateClaimScore(claim._id)
-      // Refetch claim to get updated score
       const refetchedClaim = await Claim.findById(claim._id)
         .populate('userId', 'username email firstName lastName avatarUrl role createdAt')
         .populate('categoryId', 'name slug description')
@@ -82,10 +80,8 @@ export async function GET(
       }
     } catch (error) {
       console.error('Error updating claim score:', error)
-      // Continue even if score update fails
     }
 
-    // Ensure claim is still available after refetch
     if (!claim) {
       return NextResponse.json(
         { 
@@ -99,7 +95,6 @@ export async function GET(
       )
     }
 
-    // Get user follow and vote status if authenticated
     let isFollowing = false
     let userVote: 'upvote' | 'downvote' | null = null
     const user = await optionalAuth(request)
@@ -132,7 +127,6 @@ export async function GET(
           : (claim.categoryId as any)?._id?.toString() || (claim.categoryId as any).toString())
       : undefined
 
-    // Check if user is admin or creator (for title editing fields visibility)
     const isAdmin = user && (user.role?.toUpperCase() === 'ADMIN' || user.role?.toUpperCase() === 'MODERATOR')
     const isCreator = user && userId === user.userId
 
@@ -178,7 +172,6 @@ export async function GET(
       } : undefined,
     }
 
-    // Include title and description editing fields only for admins and creators
     if (isAdmin || isCreator) {
       claimResponse.originalTitle = claim.originalTitle
       claimResponse.titleEdited = claim.titleEdited || false
@@ -190,6 +183,10 @@ export async function GET(
       claimResponse.descriptionEditedBy = claim.descriptionEditedBy?.toString()
       claimResponse.descriptionEditedAt = claim.descriptionEditedAt
       claimResponse.descriptionEditReason = claim.descriptionEditReason
+    }
+
+    if (isCreator && claim.status === ClaimStatus.REJECTED) {
+      claimResponse.rejectionFeedback = claim.rejectionFeedback
     }
 
     return NextResponse.json({
@@ -226,7 +223,6 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check authentication
     const authResult = await requireAuth(request)
     if (authResult.error) {
       return authResult.error
@@ -235,10 +231,8 @@ export async function PATCH(
     const user = authResult.user
     const claimId = params.id
 
-    // Ensure database connection
     await connectDB()
 
-    // Validate claim ID format
     if (!mongoose.Types.ObjectId.isValid(claimId)) {
       return NextResponse.json(
         { 
@@ -252,7 +246,6 @@ export async function PATCH(
       )
     }
 
-    // Parse request body
     let body: any
     try {
       body = await request.json()
@@ -269,7 +262,6 @@ export async function PATCH(
       )
     }
 
-    // Validate input
     const validationResult = updateClaimStatusSchema.safeParse(body)
     if (!validationResult.success) {
       return NextResponse.json(
@@ -285,9 +277,8 @@ export async function PATCH(
       )
     }
 
-    const { status, reason, metadata, title, description, seoTitle, seoDescription, titleEditReason, descriptionEditReason } = validationResult.data
+    const { status, reason, rejectionFeedback, notifyUser, metadata, title, description, seoTitle, seoDescription, titleEditReason, descriptionEditReason } = validationResult.data
 
-    // Find the claim
     const claim = await Claim.findById(new mongoose.Types.ObjectId(claimId))
     if (!claim) {
       return NextResponse.json(
@@ -302,22 +293,17 @@ export async function PATCH(
       )
     }
 
-    // Handle title editing if title is being changed
     if (title !== undefined && title !== claim.title) {
-      // If title_edited is currently false: Preserve existing title in original_title (if not already set)
       if (!claim.titleEdited && !claim.originalTitle) {
         claim.originalTitle = claim.title
       }
       
-      // Update title with the new edited text
       claim.title = title
       
-      // Set title editing metadata
       claim.titleEdited = true
       claim.titleEditedBy = new mongoose.Types.ObjectId(user.userId)
       claim.titleEditedAt = new Date()
       
-      // Validate that edit reason is provided when title is edited
       if (!titleEditReason || !titleEditReason.trim()) {
         return NextResponse.json(
           { 
@@ -334,22 +320,17 @@ export async function PATCH(
       claim.titleEditReason = titleEditReason
     }
 
-    // Handle description editing if description is being changed
     if (description !== undefined && description !== (claim.description || '')) {
-      // If description_edited is currently false: Preserve existing description in original_description (if not already set)
       if (!claim.descriptionEdited && !claim.originalDescription) {
         claim.originalDescription = claim.description
       }
       
-      // Update description with the new edited text
       claim.description = description
       
-      // Set description editing metadata
       claim.descriptionEdited = true
       claim.descriptionEditedBy = new mongoose.Types.ObjectId(user.userId)
       claim.descriptionEditedAt = new Date()
       
-      // Validate that edit reason is provided when description is edited
       if (!descriptionEditReason || !descriptionEditReason.trim()) {
         return NextResponse.json(
           { 
@@ -366,7 +347,6 @@ export async function PATCH(
       claim.descriptionEditReason = descriptionEditReason
     }
 
-    // Update SEO fields if provided
     if (seoTitle !== undefined) {
       claim.seoTitle = seoTitle
     }
@@ -374,12 +354,15 @@ export async function PATCH(
       claim.seoDescription = seoDescription
     }
 
-    // Update claim status
     const newStatus = status.toUpperCase() as ClaimStatus
     claim.status = newStatus
+    
+    if (rejectionFeedback && newStatus === ClaimStatus.REJECTED) {
+      claim.rejectionFeedback = rejectionFeedback
+    }
+    
     await claim.save()
 
-    // Log moderation action
     let moderationAction: ModerationAction
     if (newStatus === ClaimStatus.APPROVED) {
       moderationAction = ModerationAction.APPROVE_CLAIM
@@ -388,9 +371,9 @@ export async function PATCH(
     } else if (newStatus === ClaimStatus.FLAGGED) {
       moderationAction = ModerationAction.FLAG_CLAIM
     } else if (newStatus === ClaimStatus.CLOSED) {
-      moderationAction = ModerationAction.APPROVE_CLAIM // Use approve as fallback for closed
+      moderationAction = ModerationAction.APPROVE_CLAIM
     } else {
-      moderationAction = ModerationAction.APPROVE_CLAIM // Default fallback
+      moderationAction = ModerationAction.APPROVE_CLAIM
     }
 
     await ModerationLog.create({
@@ -402,7 +385,49 @@ export async function PATCH(
       metadata: metadata || {},
     })
 
-    // Populate claim with user and category for response
+    if (newStatus === ClaimStatus.APPROVED) {
+      const claimUserId = claim.userId instanceof mongoose.Types.ObjectId
+        ? claim.userId.toString()
+        : (claim.userId as any)?._id?.toString() || (claim.userId as any).toString()
+
+      createNotification({
+        userId: claimUserId,
+        type: NotificationType.CLAIM_APPROVED,
+        title: 'Your claim has been approved',
+        message: `"${claim.title}" has been approved and is now live on the platform`,
+        link: `/claims/${claim._id.toString()}`,
+      }).catch((error) => {
+        console.error('Error notifying user about claim approval:', error)
+      })
+
+      notifyAllUsers({
+        type: NotificationType.NEW_CLAIM,
+        title: 'New claim published',
+        message: `"${claim.title}" has been published`,
+        link: `/claims/${claim._id.toString()}`,
+      }).catch((error) => {
+        console.error('Error notifying all users about new claim:', error)
+      })
+    }
+
+    if (newStatus === ClaimStatus.REJECTED && notifyUser) {
+      const claimUserId = claim.userId instanceof mongoose.Types.ObjectId
+        ? claim.userId.toString()
+        : (claim.userId as any)?._id?.toString() || (claim.userId as any).toString()
+
+      const feedbackMessage = rejectionFeedback || reason || 'Your claim has been rejected.'
+      
+      createNotification({
+        userId: claimUserId,
+        type: NotificationType.CLAIM_REJECTED,
+        title: 'Your claim has been rejected',
+        message: feedbackMessage,
+        link: `/claims/${claim._id.toString()}?showRejection=true`,
+      }).catch((error) => {
+        console.error('Error notifying user about claim rejection:', error)
+      })
+    }
+
     await claim.populate('userId', 'username email firstName lastName avatarUrl')
     await claim.populate('categoryId', 'name slug')
 
@@ -446,6 +471,8 @@ export async function PATCH(
         descriptionEditedBy: populatedClaim.descriptionEditedBy?.toString(),
         descriptionEditedAt: populatedClaim.descriptionEditedAt,
         descriptionEditReason: populatedClaim.descriptionEditReason,
+        rejectionFeedback: populatedClaim.rejectionFeedback,
+        expeditedReview: populatedClaim.expeditedReview,
         createdAt: populatedClaim.createdAt,
         updatedAt: populatedClaim.updatedAt,
         user: populatedClaim.userId instanceof mongoose.Types.ObjectId ? undefined : {
@@ -494,7 +521,6 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check authentication
     const authResult = await requireAuth(request)
     if (authResult.error) {
       return authResult.error
@@ -503,10 +529,8 @@ export async function DELETE(
     const user = authResult.user
     const claimId = params.id
 
-    // Ensure database connection
     await connectDB()
 
-    // Validate claim ID format
     if (!mongoose.Types.ObjectId.isValid(claimId)) {
       return NextResponse.json(
         { 
@@ -520,7 +544,6 @@ export async function DELETE(
       )
     }
 
-    // Find the claim
     const claim = await Claim.findById(new mongoose.Types.ObjectId(claimId))
     if (!claim) {
       return NextResponse.json(
@@ -535,7 +558,6 @@ export async function DELETE(
       )
     }
 
-    // Check if user owns the claim or is an admin
     const userRole = user.role?.toUpperCase()
     const isAdmin = userRole === 'ADMIN'
     
@@ -556,21 +578,17 @@ export async function DELETE(
       )
     }
 
-    // Delete associated file if exists
     if (claim.fileUrl) {
       try {
         await deleteFile(claim.fileUrl)
       } catch (error) {
         console.error('Error deleting claim file:', error)
-        // Continue with deletion even if file deletion fails
       }
     }
 
-    // Get all evidence and perspectives for this claim before deletion
     const evidenceList = await Evidence.find({ claimId: claim._id })
     const perspectiveList = await Perspective.find({ claimId: claim._id })
 
-    // Delete related evidence files and their associated data
     for (const evidence of evidenceList) {
       if (evidence.fileUrl) {
         try {
@@ -579,12 +597,10 @@ export async function DELETE(
           console.error('Error deleting evidence file:', error)
         }
       }
-      // Delete votes and follows for this evidence
       await Vote.deleteMany({ evidenceId: evidence._id })
       await EvidenceFollow.deleteMany({ evidenceId: evidence._id })
     }
 
-    // Delete related perspective files and their associated data
     for (const perspective of perspectiveList) {
       if (perspective.fileUrl) {
         try {
@@ -593,12 +609,10 @@ export async function DELETE(
           console.error('Error deleting perspective file:', error)
         }
       }
-      // Delete votes and follows for this perspective
       await PerspectiveVote.deleteMany({ perspectiveId: perspective._id })
       await PerspectiveFollow.deleteMany({ perspectiveId: perspective._id })
     }
 
-    // Delete the claim and all related data
     await ClaimVote.deleteMany({ claimId: claim._id })
     await ClaimFollow.deleteMany({ claimId: claim._id })
     await Evidence.deleteMany({ claimId: claim._id })

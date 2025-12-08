@@ -3,9 +3,10 @@ import connectDB from '@/lib/db/mongoose'
 import { requireAuth } from '@/lib/auth/middleware'
 import { Perspective } from '@/lib/db/models'
 import { PerspectiveVote } from '@/lib/db/models'
-import { VoteType } from '@/lib/db/models'
+import { VoteType, NotificationType } from '@/lib/db/models'
 import { Claim } from '@/lib/db/models'
 import { updateClaimScore } from '@/lib/utils/claimScore'
+import { createNotification } from '@/lib/utils/notifications'
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
@@ -158,6 +159,36 @@ export async function POST(
     // Update score (upvotes - downvotes)
     perspective.score = perspective.upvotes - perspective.downvotes
     await perspective.save()
+
+    // Notify perspective owner about vote (only if it's a new vote, not if they're updating their own vote)
+    const perspectiveOwnerId = perspective.userId instanceof mongoose.Types.ObjectId
+      ? perspective.userId.toString()
+      : (perspective.userId as any)?._id?.toString() || (perspective.userId as any).toString()
+
+    const voterId = user.userId
+
+    // Only notify if it's a new vote and the voter is not the perspective owner
+    if (!existingVote && perspectiveOwnerId !== voterId) {
+      // Populate perspective to get title
+      await perspective.populate('userId', 'username')
+      await perspective.populate('claimId', 'title')
+
+      const perspectiveTitle = perspective.title || 'your perspective'
+      const claimTitle = perspective.claimId instanceof mongoose.Types.ObjectId
+        ? 'a claim'
+        : (perspective.claimId as any)?.title || 'a claim'
+      const voterUsername = user.username || 'Someone'
+
+      createNotification({
+        userId: perspectiveOwnerId,
+        type: NotificationType.VOTE_RECEIVED,
+        title: `Your perspective received a ${voteType === 'upvote' ? 'Yes' : 'No'} vote`,
+        message: `@${voterUsername} ${voteType === 'upvote' ? 'upvoted' : 'downvoted'} your perspective "${perspectiveTitle}" on "${claimTitle}"`,
+        link: `/claims/${perspective.claimId.toString()}`,
+      }).catch((error) => {
+        console.error('Error notifying perspective owner about vote:', error)
+      })
+    }
 
     // Update claim total score - this recalculates based on all evidence/perspectives
     const updatedTotalScore = await updateClaimScore(perspective.claimId)
