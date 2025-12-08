@@ -24,11 +24,9 @@ const createPerspectiveSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Get claimId from query parameters
     const { searchParams } = new URL(request.url)
     const claimId = searchParams.get('id')
 
-    // Check authentication
     const authResult = await requireAuth(request)
     if (authResult.error) {
       return authResult.error
@@ -36,10 +34,8 @@ export async function POST(request: NextRequest) {
 
     const user = authResult.user
 
-    // Ensure database connection
     await connectDB()
 
-    // Check if claimId exists
     if (!claimId) {
       return NextResponse.json(
         { success: false, error: 'Claim ID is required' },
@@ -50,7 +46,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate claim ID format
     if (!mongoose.Types.ObjectId.isValid(claimId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid claim ID format', receivedId: claimId },
@@ -61,8 +56,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate claim exists
-    const claim = await Claim.findById(new mongoose.Types.ObjectId(claimId))
+    const claim = await Claim.findById(new mongoose.Types.ObjectId(claimId)).select('userId title').lean()
     if (!claim) {
       return NextResponse.json(
         { success: false, error: 'Claim not found' },
@@ -73,7 +67,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse request body
     let body: any
     try {
       body = await request.json()
@@ -90,7 +83,6 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Validate input
     const validationResult = createPerspectiveSchema.safeParse(body)
     if (!validationResult.success) {
       return NextResponse.json(
@@ -108,7 +100,6 @@ export async function POST(request: NextRequest) {
 
     const { type, url, fileUrl, fileName, fileSize, fileType, title, body: bodyText, position } = validationResult.data
 
-    // Validate that required fields are provided based on type
     if (type === 'url' && !url) {
       return NextResponse.json(
         { success: false, error: 'URL is required for URL type perspective' },
@@ -127,25 +118,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Prepare perspective data
     const perspectiveData: any = {
       claimId: new mongoose.Types.ObjectId(claimId),
       userId: new mongoose.Types.ObjectId(user.userId),
       position: position.toUpperCase() as Position,
       body: bodyText,
       title: title?.trim() || undefined,
-      status: PerspectiveStatus.APPROVED, // Auto-approve perspectives
+      status: PerspectiveStatus.APPROVED,
       upvotes: 0,
       downvotes: 0,
       score: 0,
     }
 
-    // Handle URL-based perspective
     if (type === 'url' && url) {
       let sourcePlatform: string | undefined
       let metadata: Record<string, any> | undefined
 
-      // Determine source platform from URL
       if (url.includes('youtube.com') || url.includes('youtu.be')) {
         sourcePlatform = 'youtube'
         try {
@@ -155,7 +143,6 @@ export async function POST(request: NextRequest) {
             thumbnail: oembedData.thumbnail,
             provider: oembedData.provider,
           }
-          // Only set title from oEmbed if user didn't provide one
           if (!title?.trim()) {
             perspectiveData.title = oembedData.title || undefined
           }
@@ -170,7 +157,6 @@ export async function POST(request: NextRequest) {
             title: oembedData.title,
             provider: oembedData.provider,
           }
-          // Only set title from oEmbed if user didn't provide one
           if (!title?.trim()) {
             perspectiveData.title = oembedData.title || undefined
           }
@@ -185,7 +171,6 @@ export async function POST(request: NextRequest) {
             title: oembedData.title,
             provider: oembedData.provider,
           }
-          // Only set title from oEmbed if user didn't provide one
           if (!title?.trim()) {
             perspectiveData.title = oembedData.title || undefined
           }
@@ -200,7 +185,6 @@ export async function POST(request: NextRequest) {
             title: oembedData.title,
             provider: oembedData.provider,
           }
-          // Only set title from oEmbed if user didn't provide one
           if (!title?.trim()) {
             perspectiveData.title = oembedData.title || undefined
           }
@@ -213,18 +197,14 @@ export async function POST(request: NextRequest) {
       perspectiveData.sourcePlatform = sourcePlatform
       perspectiveData.metadata = metadata
     } else if (type === 'file' && fileUrl) {
-      // Handle file-based perspective
       perspectiveData.fileUrl = fileUrl
       perspectiveData.fileName = fileName
       perspectiveData.fileSize = fileSize
       perspectiveData.fileType = fileType
     }
-
-    // Create perspective
+    
     const perspective = await Perspective.create(perspectiveData)
 
-    // Update claim score since perspective is auto-approved
-    // The score will include this new perspective immediately
     try {
       await updateClaimScore(new mongoose.Types.ObjectId(claimId))
     } catch (error) {
@@ -232,7 +212,6 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if score update fails
     }
 
-    // Populate perspective with user and claim
     const populatedPerspective = await Perspective.findById(perspective._id)
       .populate('userId', 'username email firstName lastName avatarUrl')
       .populate('claimId', 'title description userId')
@@ -240,10 +219,6 @@ export async function POST(request: NextRequest) {
     if (!populatedPerspective) {
       throw new Error('Failed to retrieve created perspective')
     }
-
-    // Notify claim owner about new perspective (don't notify if owner is the one who added it)
-    // Get claim to find owner
-    const claim = await Claim.findById(claimId).select('userId title').lean()
     
     if (claim) {
       const claimOwnerId = claim.userId instanceof mongoose.Types.ObjectId
@@ -273,7 +248,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get updated claim with recalculated score
     const updatedClaim = await Claim.findById(claimId)
 
     const perspectiveClaimId = populatedPerspective.claimId instanceof mongoose.Types.ObjectId 
@@ -335,7 +309,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to create perspective'
     
-    // Always return JSON, even on errors
     return NextResponse.json(
       { 
         success: false,

@@ -10,7 +10,6 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check authentication
     const authResult = await requireAuth(request)
     if (authResult.error) {
       return authResult.error
@@ -19,10 +18,8 @@ export async function POST(
     const user = authResult.user
     const claimId = params.id
 
-    // Ensure database connection
     await connectDB()
 
-    // Validate claim ID format
     if (!mongoose.Types.ObjectId.isValid(claimId)) {
       return NextResponse.json(
         { 
@@ -36,7 +33,6 @@ export async function POST(
       )
     }
 
-    // Find the claim
     const claim = await Claim.findById(new mongoose.Types.ObjectId(claimId))
     if (!claim) {
       return NextResponse.json(
@@ -54,7 +50,6 @@ export async function POST(
     const userId = new mongoose.Types.ObjectId(user.userId)
     const claimObjectId = new mongoose.Types.ObjectId(claimId)
 
-    // Check if user already follows
     const existingFollow = await ClaimFollow.findOne({
       claimId: claimObjectId,
       userId,
@@ -63,12 +58,10 @@ export async function POST(
     let isFollowing = false
 
     if (existingFollow) {
-      // Unfollow - remove the follow
       await ClaimFollow.findByIdAndDelete(existingFollow._id)
       claim.followCount = Math.max(0, claim.followCount - 1)
       isFollowing = false
     } else {
-      // Follow - create new follow
       await ClaimFollow.create({
         claimId: claimObjectId,
         userId,
