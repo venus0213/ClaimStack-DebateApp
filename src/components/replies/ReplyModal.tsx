@@ -36,7 +36,7 @@ export const ReplyModal: React.FC<ReplyModalProps> = ({
       title={
         <div className="space-y-2">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
-            Replies
+            Comments
           </h2>
           <div className="text-sm text-gray-600 dark:text-gray-400">
             {targetType === 'evidence' ? 'Evidence' : 'Perspective'} by @{item.user?.username || 'user'}

@@ -12,6 +12,7 @@ export interface IReply extends Document {
   targetId: mongoose.Types.ObjectId
   userId: mongoose.Types.ObjectId
   body: string
+  links?: string[]
   upvotes: number
   downvotes: number
   score: number
@@ -41,6 +42,16 @@ const ReplySchema = new Schema<IReply>(
       required: true,
       minlength: 10,
       maxlength: 2000,
+    },
+    links: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function(links: string[]) {
+          return links.length <= 1 // Maximum 1 link per reply
+        },
+        message: 'Maximum 1 link allowed per reply'
+      }
     },
     upvotes: {
       type: Number,

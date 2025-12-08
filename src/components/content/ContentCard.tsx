@@ -69,6 +69,8 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   const { user: currentUser } = useAuth()
   const pathname = usePathname()
   const isBrowsePage = pathname === '/browse'
+  const isMainPage = pathname === '/'
+  const shouldHideApprovedStatus = isBrowsePage || isMainPage
 
   const itemType = isClaimItem ? 'claim' : isEvidenceItem ? 'evidence' : 'perspective'
   
@@ -257,10 +259,10 @@ export const ContentCard: React.FC<ContentCardProps> = ({
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${cardTypeColor}`}>
             {cardType}
           </span>
-          {/* Status badge only for claims - show "approved" only when not on Browse page */}
+          {/* Status badge only for claims - show "approved" only when not on Browse or Main page */}
           {isClaimItem && (item as Claim).status && (
             <>
-              {(item as Claim).status === 'approved' && !isBrowsePage ? (
+              {(item as Claim).status === 'approved' && !shouldHideApprovedStatus ? (
                 <span className="px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 whitespace-nowrap">
                   <CheckIcon className="w-3 h-3" />
                   <span className="capitalize">{(item as Claim).status}</span>
@@ -391,7 +393,7 @@ export const ContentCard: React.FC<ContentCardProps> = ({
                 onClick={() => setShowReplyModal(true)}
                 className="rounded-full text-xs sm:text-sm px-3 sm:px-4 flex items-center gap-1.5 sm:gap-2"
               >
-                <span>Reply</span>
+                <span>Comments</span>
                 {replyCount !== null && replyCount > 0 && (
                   <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full text-xs font-medium">
                     {replyCount}

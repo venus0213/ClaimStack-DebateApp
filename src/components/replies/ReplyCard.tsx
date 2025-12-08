@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { Reply } from '@/lib/types'
 import { VoteButtons } from '@/components/voting/VoteButtons'
+import { LinkDisplay } from './LinkDisplay'
 import { useVote } from '@/hooks/useVote'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils/cn'
@@ -35,6 +36,9 @@ export const ReplyCard: React.FC<ReplyCardProps> = ({ reply, onVote }) => {
 
   const user = reply.user
   const isOwnReply = currentUser && user && currentUser.id === user.id
+
+  // Check if links exist and are valid
+  const hasLinks = reply.links && Array.isArray(reply.links) && reply.links.length > 0
 
   return (
     <div className={cn(
@@ -77,6 +81,13 @@ export const ReplyCard: React.FC<ReplyCardProps> = ({ reply, onVote }) => {
           {reply.body}
         </p>
       </div>
+
+      {/* Links Display */}
+      {hasLinks && reply.links && (
+        <div className="mb-3 sm:mb-4">
+          <LinkDisplay links={reply.links} />
+        </div>
+      )}
 
       {/* Vote Buttons */}
       <div className="flex items-center justify-end pt-2 sm:pt-3 border-t border-gray-200 dark:border-gray-700">

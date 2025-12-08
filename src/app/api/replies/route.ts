@@ -12,6 +12,7 @@ const createReplySchema = z.object({
   targetType: z.enum(['evidence', 'perspective']),
   targetId: z.string().min(1),
   body: z.string().min(10, 'Reply must be at least 10 characters').max(2000, 'Reply must be at most 2000 characters'),
+  links: z.array(z.string().min(1, 'Link cannot be empty')).max(1, 'Maximum 1 link allowed').optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -130,12 +131,18 @@ export async function GET(request: NextRequest) {
       const userIdString = userIdValue?._id?.toString() || userIdValue?.toString() || ''
       const isUserIdPopulated = userIdValue && typeof userIdValue === 'object' && 'email' in userIdValue
 
+      // Ensure links are properly formatted
+      const replyLinks = Array.isArray(doc.links) 
+        ? doc.links.filter((link: any) => link && typeof link === 'string' && link.trim().length > 0)
+        : []
+
       return {
         id: doc._id.toString(),
         targetType: doc.targetType,
         targetId: doc.targetId.toString(),
         userId: userIdString,
         body: doc.body,
+        links: replyLinks,
         upvotes: doc.upvotes || 0,
         downvotes: doc.downvotes || 0,
         score: doc.score || 0,
@@ -229,7 +236,50 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { targetType, targetId, body: replyBody } = validationResult.data
+    const { targetType, targetId, body: replyBody, links } = validationResult.data
+
+    // Validate and normalize links (only 1 link allowed)
+    let normalizedLinks: string[] = []
+    if (links && Array.isArray(links) && links.length > 0) {
+      // Only take the first link if multiple are provided
+      const linkToProcess = links[0]
+      
+      if (linkToProcess && typeof linkToProcess === 'string') {
+        const trimmed = linkToProcess.trim()
+        if (trimmed) {
+          // Add protocol if missing
+          const linkWithProtocol = trimmed.startsWith('http://') || trimmed.startsWith('https://')
+            ? trimmed
+            : `https://${trimmed}`
+          
+          // Validate URL
+          try {
+            const url = new URL(linkWithProtocol)
+            // Ensure the URL has a valid hostname
+            if (!url.hostname || url.hostname.length === 0) {
+              throw new Error('Invalid hostname')
+            }
+            normalizedLinks = [linkWithProtocol]
+          } catch (error) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: `Invalid URL format: ${trimmed}`,
+              },
+              {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' },
+              }
+            )
+          }
+        }
+      }
+      
+      // Warn if more than 1 link was provided
+      if (links.length > 1) {
+        console.warn(`Multiple links provided, only the first link will be saved. Provided: ${links.length}, saving: 1`)
+      }
+    }
 
     // Validate targetId format
     if (!mongoose.Types.ObjectId.isValid(targetId)) {
@@ -276,6 +326,7 @@ export async function POST(request: NextRequest) {
       targetId: new mongoose.Types.ObjectId(targetId),
       userId: new mongoose.Types.ObjectId(user.userId),
       body: replyBody.trim(),
+      links: normalizedLinks,
       status: ReplyStatus.APPROVED,
       upvotes: 0,
       downvotes: 0,
@@ -289,6 +340,11 @@ export async function POST(request: NextRequest) {
 
     if (!populatedReply) {
       throw new Error('Failed to retrieve created reply')
+    }
+
+    // Ensure links field is present (Mongoose should include it, but just in case)
+    if (!(populatedReply as any).links || !Array.isArray((populatedReply as any).links)) {
+      (populatedReply as any).links = normalizedLinks
     }
 
     // Notify target author (if not replying to own content)
@@ -327,6 +383,13 @@ export async function POST(request: NextRequest) {
     const userIdString = userIdValue?._id?.toString() || userIdValue?.toString() || ''
     const isUserIdPopulated = userIdValue && typeof userIdValue === 'object' && 'email' in userIdValue
 
+    // Ensure links are properly formatted - use normalizedLinks as fallback
+    const replyLinks = Array.isArray((populatedReply as any).links) && (populatedReply as any).links.length > 0
+      ? (populatedReply as any).links.filter((link: any) => link && typeof link === 'string' && link.trim().length > 0)
+      : normalizedLinks.length > 0 
+        ? normalizedLinks 
+        : []
+
     return NextResponse.json(
       {
         success: true,
@@ -336,6 +399,7 @@ export async function POST(request: NextRequest) {
           targetId: populatedReply.targetId.toString(),
           userId: userIdString,
           body: populatedReply.body,
+          links: replyLinks,
           upvotes: populatedReply.upvotes || 0,
           downvotes: populatedReply.downvotes || 0,
           score: populatedReply.score || 0,

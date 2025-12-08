@@ -123,7 +123,7 @@ export const ReplyList: React.FC<ReplyListProps> = ({
               className="flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
             >
               <span>
-                {replyCount === 0 ? 'No' : replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
+                {replyCount === 0 ? 'No' : replyCount} {replyCount === 1 ? 'Comment' : 'Comments'}
               </span>
               {isExpanded ? (
                 <ChevronUpIcon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -170,7 +170,7 @@ export const ReplyList: React.FC<ReplyListProps> = ({
               }}
               className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-full"
             >
-              Reply
+              Comments
             </Button>
           )}
         </div>
@@ -180,7 +180,7 @@ export const ReplyList: React.FC<ReplyListProps> = ({
       {isInModal && (
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {replyCount === 0 ? 'No' : replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}
+            {replyCount === 0 ? 'No' : replyCount} {replyCount === 1 ? 'Comment' : 'Comments'}
           </h3>
           {replyCount > 0 && (
             <div className="flex items-center gap-1 sm:gap-2">
@@ -239,7 +239,7 @@ export const ReplyList: React.FC<ReplyListProps> = ({
                 onClick={fetchReplies}
                 className="mt-2 text-xs sm:text-sm"
               >
-                Retry
+                Comment
               </Button>
             </div>
           ) : replies.length === 0 ? (
