@@ -167,6 +167,7 @@ export interface Reply {
   targetId: string
   userId: string
   body: string
+  links?: string[]
   upvotes: number
   downvotes: number
   score: number

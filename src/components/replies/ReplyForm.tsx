@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useRequireAuth } from '@/hooks/useRequireAuth'
 import { Reply } from '@/lib/types'
+import { LinkInput } from './LinkInput'
 import { cn } from '@/lib/utils/cn'
 
 interface ReplyFormProps {
@@ -23,6 +24,7 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
 }) => {
   const { requireAuth } = useRequireAuth()
   const [body, setBody] = useState('')
+  const [links, setLinks] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -30,17 +32,17 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
     e.preventDefault()
 
     if (!body.trim()) {
-      setError('Reply cannot be empty')
+      setError('Comment cannot be empty')
       return
     }
 
     if (body.trim().length < 10) {
-      setError('Reply must be at least 10 characters')
+      setError('Comment must be at least 10 characters')
       return
     }
 
     if (body.trim().length > 2000) {
-      setError('Reply must be at most 2000 characters')
+      setError('Comment must be at most 2000 characters')
       return
     }
 
@@ -59,6 +61,7 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
             targetType,
             targetId,
             body: body.trim(),
+            links: links || [],
           }),
         })
 
@@ -73,6 +76,7 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
         
         // Reset form
         setBody('')
+        setLinks([])
         setError(null)
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to create reply'
@@ -86,6 +90,7 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
 
   const handleCancel = () => {
     setBody('')
+    setLinks([])
     setError(null)
     onCancel?.()
   }
@@ -148,6 +153,15 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
         </div>
       </div>
 
+      {/* Link Input */}
+      <div>
+        <LinkInput
+          links={links}
+          onChange={setLinks}
+          maxLinks={1}
+        />
+      </div>
+
       <div className="flex items-center justify-end gap-2 sm:gap-3">
         {onCancel && (
           <Button
@@ -166,7 +180,7 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
           disabled={isSubmitting || !isLengthValid || !body.trim()}
           className="text-xs sm:text-sm px-4 sm:px-6 py-1.5 sm:py-2 rounded-full"
         >
-          {isSubmitting ? 'Posting...' : 'Post Reply'}
+          {isSubmitting ? 'Posting...' : 'Post Comment'}
         </Button>
       </div>
     </form>
