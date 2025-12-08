@@ -37,4 +37,8 @@ export { default as ModerationLog, ModerationAction } from './ModerationLog'
 export type { IModerationLog } from './ModerationLog'
 export { default as SavedClaim } from './SavedClaim'
 export type { ISavedClaim } from './SavedClaim'
+export { default as Reply, ReplyStatus } from './Reply'
+export type { IReply } from './Reply'
+export { default as ReplyVote } from './ReplyVote'
+export type { IReplyVote } from './ReplyVote'
 

@@ -50,6 +50,7 @@ export const NotificationList: React.FC<NotificationListProps> = ({ onClose }) =
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
       case 'new_comment':
+      case 'new_reply':
         return (
           <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center relative">
             <ChatIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />

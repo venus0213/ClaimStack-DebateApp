@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { useClaimsStore } from '@/store/claimsStore'
 import { useEvidenceStore } from '@/store/evidenceStore'
 
-type VoteableItem = 'claim' | 'evidence' | 'perspective'
+type VoteableItem = 'claim' | 'evidence' | 'perspective' | 'reply'
 
 interface UseVoteOptions {
   itemId: string
@@ -47,6 +47,8 @@ export function useVote({
         return `/api/evidence/${itemId}/vote`
       case 'perspective':
         return `/api/perspectives/${itemId}/vote`
+      case 'reply':
+        return `/api/replies/${itemId}/vote`
       default:
         throw new Error(`Invalid item type: ${itemType}`)
     }
@@ -181,6 +183,12 @@ export function useVote({
                 }
               }
             }
+          }
+        } else if (itemType === 'reply') {
+          if (data.success && data.reply) {
+            setUpvotes(data.reply.upvotes)
+            setDownvotes(data.reply.downvotes)
+            setUserVote(data.userVote)
           }
         }
       } catch (error) {

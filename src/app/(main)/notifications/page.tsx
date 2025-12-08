@@ -58,6 +58,7 @@ export default function NotificationsPage() {
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
       case 'new_comment':
+      case 'new_reply':
         return (
           <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center relative">
             <ChatIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />

@@ -111,7 +111,7 @@ export interface Category {
 export interface Notification {
   id: string
   userId: string
-  type: 'new_evidence' | 'new_perspective' | 'new_comment' | 'evidence_approved' | 'evidence_rejected' | 'perspective_approved' | 'perspective_rejected' | 'claim_updated' | 'new_follower' | 'vote_received' | 'claim_submitted' | 'claim_approved' | 'claim_rejected' | 'new_claim' | 'expedited_review_requested'
+  type: 'new_evidence' | 'new_perspective' | 'new_comment' | 'new_reply' | 'evidence_approved' | 'evidence_rejected' | 'perspective_approved' | 'perspective_rejected' | 'claim_updated' | 'new_follower' | 'vote_received' | 'claim_submitted' | 'claim_approved' | 'claim_rejected' | 'new_claim' | 'expedited_review_requested'
   title: string
   message?: string
   link?: string
@@ -158,5 +158,22 @@ export interface Flag {
   description?: string
   status: 'pending' | 'reviewed' | 'resolved' | 'dismissed'
   createdAt: Date
+}
+
+// Reply Types
+export interface Reply {
+  id: string
+  targetType: 'evidence' | 'perspective'
+  targetId: string
+  userId: string
+  body: string
+  upvotes: number
+  downvotes: number
+  score: number
+  status: 'pending' | 'approved' | 'rejected' | 'flagged'
+  createdAt: Date
+  updatedAt: Date
+  user?: User
+  userVote?: 'upvote' | 'downvote' | null
 }
 

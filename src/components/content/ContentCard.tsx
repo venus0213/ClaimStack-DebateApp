@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/Modal'
 import { useVote } from '@/hooks/useVote'
 import { useFollow } from '@/hooks/useFollow'
 import { useAuth } from '@/hooks/useAuth'
+import { ReplyModal } from '@/components/replies/ReplyModal'
 import { cn } from '@/lib/utils/cn'
 
 interface ContentCardProps {
@@ -121,6 +122,8 @@ export const ContentCard: React.FC<ContentCardProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [showReplyModal, setShowReplyModal] = useState(false)
+  const [replyCount, setReplyCount] = useState<number | null>(null)
 
   useEffect(() => {
     if (descriptionRef.current && !isDescriptionExpanded) {
@@ -137,6 +140,32 @@ export const ContentCard: React.FC<ContentCardProps> = ({
       // The hook will handle this through its internal state
     }
   }, [propUserVote, userVote])
+
+  // Fetch reply count when component mounts (only for evidence/perspectives)
+  useEffect(() => {
+    if ((isEvidenceItem || isPerspectiveItem) && itemId) {
+      const fetchReplyCount = async () => {
+        try {
+          const params = new URLSearchParams({
+            targetType: isEvidenceItem ? 'evidence' : 'perspective',
+            targetId: itemId,
+          })
+          const response = await fetch(`/api/replies?${params.toString()}`, {
+            credentials: 'include',
+          })
+          if (response.ok) {
+            const data = await response.json()
+            if (data.success && data.replies) {
+              setReplyCount(data.replies.length)
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching reply count:', error)
+        }
+      }
+      fetchReplyCount()
+    }
+  }, [isEvidenceItem, isPerspectiveItem, itemId])
 
   const cardType = isEvidenceItem ? 'Evidence' : isPerspectiveItem ? 'Perspective' : ''
   const cardTypeColor = isEvidenceItem 
@@ -353,18 +382,74 @@ export const ContentCard: React.FC<ContentCardProps> = ({
             {isFollowing ? 'Following' : 'Follow'}
           </Button>
 
-          <VoteButtons
-            upvotes={upvotes}
-            downvotes={downvotes}
-            userVote={userVote}
-            onVote={handleVote}
-            disabled={isVoting}
-            itemId={itemId}
-            itemType={itemType}
-            onDropdownChange={setIsDropdownOpen}
-          />
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Reply Button - Only for Evidence and Perspectives */}
+            {(isEvidenceItem || isPerspectiveItem) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowReplyModal(true)}
+                className="rounded-full text-xs sm:text-sm px-3 sm:px-4 flex items-center gap-1.5 sm:gap-2"
+              >
+                <span>Reply</span>
+                {replyCount !== null && replyCount > 0 && (
+                  <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full text-xs font-medium">
+                    {replyCount}
+                  </span>
+                )}
+              </Button>
+            )}
+
+            <VoteButtons
+              upvotes={upvotes}
+              downvotes={downvotes}
+              userVote={userVote}
+              onVote={handleVote}
+              disabled={isVoting}
+              itemId={itemId}
+              itemType={itemType}
+              onDropdownChange={setIsDropdownOpen}
+            />
+          </div>
         </div>
       </div>
+
+      {/* Reply Modal - Only for Evidence and Perspectives */}
+      {(isEvidenceItem || isPerspectiveItem) && (
+        <ReplyModal
+          isOpen={showReplyModal}
+          onClose={() => {
+            setShowReplyModal(false)
+            // Refresh reply count when modal closes
+            if ((isEvidenceItem || isPerspectiveItem) && itemId) {
+              const fetchReplyCount = async () => {
+                try {
+                  const params = new URLSearchParams({
+                    targetType: isEvidenceItem ? 'evidence' : 'perspective',
+                    targetId: itemId,
+                  })
+                  const response = await fetch(`/api/replies?${params.toString()}`, {
+                    credentials: 'include',
+                  })
+                  if (response.ok) {
+                    const data = await response.json()
+                    if (data.success && data.replies) {
+                      setReplyCount(data.replies.length)
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error fetching reply count:', error)
+                }
+              }
+              fetchReplyCount()
+            }
+          }}
+          targetType={isEvidenceItem ? 'evidence' : 'perspective'}
+          targetId={itemId}
+          item={item as Evidence | Perspective}
+          onReplyCountChange={(count) => setReplyCount(count)}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDelete && onDelete && (
